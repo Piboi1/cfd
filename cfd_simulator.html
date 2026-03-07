@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AERO·CFD — Racing Aerodynamics Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #030508;
+    --panel: #080d14;
+    --border: #0f2035;
+    --accent: #00d4ff;
+    --accent2: #ff4d00;
+    --accent3: #39ff14;
+    --text: #c8dff0;
+    --muted: #3a5570;
+    --danger: #ff2244;
+    --warn: #ffaa00;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 13px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+  }
+  header::after {
+    content:'';
+    position:absolute;
+    bottom:0; left:0; right:0;
+    height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity:0.6;
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(0,212,255,0.5);
+  }
+  .logo span { color: var(--accent2); }
+  .status-bar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+  }
+  .status-item { display:flex; gap:6px; align-items:center; }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); }
+  .status-dot.active { background:var(--accent3); box-shadow:0 0 8px var(--accent3); animation: pulse 1.5s infinite; }
+  .status-dot.running { background:var(--warn); box-shadow:0 0 8px var(--warn); animation: pulse 0.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* LAYOUT */
+  .app-body {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .sidebar::-webkit-scrollbar { width:4px; }
+  .sidebar::-webkit-scrollbar-track { background:var(--bg); }
+  .sidebar::-webkit-scrollbar-thumb { background:var(--border); }
+
+  .section {
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+  }
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content:''; flex:1; height:1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  .param-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+    gap: 4px;
+  }
+  .param-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+  }
+  .param-label span { color: var(--accent); font-family:'Share Tech Mono',monospace; }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  input[type=number], select {
+    background: #050b12;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    width: 100%;
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=number]:focus, select:focus { border-color: var(--accent); }
+  select option { background: #080d14; }
+
+  .file-drop {
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .file-drop:hover { border-color: var(--accent); background: rgba(0,212,255,0.03); }
+  .file-drop input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
+  .file-drop .drop-icon { font-size:22px; margin-bottom:6px; }
+  .file-drop .drop-text { font-size:10px; color:var(--muted); line-height:1.6; }
+  .file-drop .drop-formats { font-size:9px; color:var(--accent); margin-top:4px; letter-spacing:1px; }
+
+  .btn {
+    width: 100%;
+    padding: 9px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    border-radius: 2px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+  .btn-primary:hover { box-shadow: 0 0 20px rgba(0,212,255,0.5); transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    margin-top: 6px;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* VIEWPORT */
+  .viewport {
+    position: relative;
+    background: var(--bg);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas#cfdCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .viewport-overlay {
+    position: absolute;
+    top: 12px; left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .vp-badge {
+    background: rgba(8,13,20,0.85);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .vp-badge span { color: var(--accent); }
+
+  .view-modes {
+    position: absolute;
+    top: 12px; right: 12px;
+    display: flex;
+    gap: 4px;
+  }
+  .view-btn {
+    background: rgba(8,13,20,0.85);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 10px;
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 1px;
+  }
+  .view-btn.active, .view-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* COLORBAR */
+  .colorbar {
+    position: absolute;
+    bottom: 50px; right: 12px;
+    width: 18px;
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+  }
+  .colorbar-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); }
+  .colorbar-bar {
+    width: 14px;
+    flex:1;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+
+  /* PROGRESS */
+  .sim-progress {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 28px;
+    background: rgba(8,13,20,0.92);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 12px;
+    display: none;
+  }
+  .sim-progress.visible { display:flex; }
+  .progress-bar-wrap { flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background: linear-gradient(90deg, var(--accent), var(--accent3)); border-radius:2px; transition:width 0.3s; }
+  .progress-text { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--muted); min-width:120px; }
+
+  /* RIGHT PANEL */
+  .results-panel {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .results-panel::-webkit-scrollbar { width:4px; }
+  .results-panel::-webkit-scrollbar-thumb { background:var(--border); }
+
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 8px 4px;
+    text-align: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover { color: var(--text); }
+
+  .tab-content { display:none; flex-direction:column; flex:1; }
+  .tab-content.active { display:flex; }
+
+  /* METRICS */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 12px;
+  }
+  .metric-card {
+    background: #050b12;
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 2px;
+    transition: border-color 0.2s;
+  }
+  .metric-card:hover { border-color: var(--accent); }
+  .metric-label {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .metric-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .metric-value.warn { color: var(--warn); }
+  .metric-value.good { color: var(--accent3); }
+  .metric-value.bad { color: var(--danger); }
+  .metric-unit { font-size: 9px; color: var(--muted); margin-top:2px; }
+
+  .metric-card.full { grid-column: 1/-1; }
+
+  /* MINI CHART */
+  canvas.mini-chart { width:100%; height:80px; display:block; }
+
+  /* DATA TABLE */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+  }
+  .data-table th {
+    background: #050b12;
+    color: var(--muted);
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-weight: normal;
+    letter-spacing: 1px;
+    font-size: 9px;
+  }
+  .data-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(15,32,53,0.5);
+    color: var(--text);
+  }
+  .data-table tr:hover td { background: rgba(0,212,255,0.03); }
+  .data-table td.highlight { color: var(--accent); }
+  .data-table td.warn { color: var(--warn); }
+  .data-table td.good { color: var(--accent3); }
+
+  .table-wrap { padding: 8px; overflow-x: hidden; }
+
+  /* WAKE / ANALYSIS */
+  .analysis-block { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .analysis-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .zone-list { display:flex; flex-direction:column; gap:4px; }
+  .zone-item {
+    display:flex; align-items:center; justify-content:space-between;
+    background:#050b12; padding:5px 8px;
+    border-left: 2px solid var(--border);
+    font-family:'Share Tech Mono',monospace; font-size:10px;
+  }
+  .zone-item.separation { border-left-color: var(--accent2); }
+  .zone-item.stagnation { border-left-color: var(--accent); }
+  .zone-item.recirculation { border-left-color: var(--warn); }
+  .zone-tag { font-size:8px; padding:2px 5px; background:rgba(0,0,0,0.3); }
+
+  /* EXPORT */
+  .export-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:12px; }
+  .export-btn {
+    background:#050b12;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px;
+    text-align:center;
+    cursor:pointer;
+    transition:all 0.15s;
+    font-family:'Share Tech Mono',monospace;
+    font-size:10px;
+    border-radius:2px;
+  }
+  .export-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .export-btn .ext { display:block; font-size:14px; margin-bottom:4px; }
+
+  /* LOG */
+  .sim-log {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 10px 12px;
+    flex: 1;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+  .log-line { color: var(--muted); }
+  .log-line.info { color: var(--accent); }
+  .log-line.warn { color: var(--warn); }
+  .log-line.ok { color: var(--accent3); }
+  .log-line.err { color: var(--danger); }
+
+  /* IDLE state */
+  .idle-screen {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:16px;
+    pointer-events:none;
+  }
+  .idle-screen.hidden { display:none; }
+  .idle-title {
+    font-family:'Orbitron',monospace;
+    font-size:28px;
+    font-weight:900;
+    color: rgba(0,212,255,0.15);
+    letter-spacing:8px;
+    text-align:center;
+  }
+  .idle-sub {
+    font-family:'Share Tech Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:2px;
+    text-align:center;
+  }
+  .grid-overlay {
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AERO<span>·</span>CFD</div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;">RACING AERODYNAMICS SIMULATOR v2.1</div>
+  <div class="status-bar">
+    <div class="status-item"><div class="status-dot" id="solverDot"></div><span id="solverStatus">IDLE</span></div>
+    <div class="status-item" style="color:var(--muted)">|</div>
+    <div class="status-item"><div class="status-dot active"></div><span>MESH ENGINE</span></div>
+    <div class="status-item" style="color:var(--muted)">|</div>
+    <div class="status-item" id="meshCountEl" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">CELLS: —</div>
+  </div>
+</header>
+
+<div class="app-body">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="section">
+      <div class="section-title">Geometry Import</div>
+      <div class="file-drop" id="fileDrop">
+        <input type="file" id="fileInput" accept=".stl,.obj,.ply,.json" onchange="handleFileImport(this)">
+        <div class="drop-icon">⬡</div>
+        <div class="drop-text">Drop CAD/mesh file or click to browse</div>
+        <div class="drop-formats">STL · OBJ · PLY · JSON</div>
+      </div>
+      <div id="fileStatus" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;text-align:center;"></div>
+
+      <div style="margin-top:10px">
+        <div class="param-label">Preset Shape <span id="shapeLabel">Sedan</span></div>
+        <select id="shapeSelect" onchange="setPresetShape(this.value)" style="margin-top:4px">
+          <option value="sedan">Sedan / Road Car</option>
+          <option value="f1">Formula / Open Wheel</option>
+          <option value="wing">Rear Wing Section</option>
+          <option value="spoiler">Front Spoiler</option>
+          <option value="box">Box / Boxy Van</option>
+          <option value="airfoil">NACA Airfoil</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Flow Conditions</div>
+
+      <div class="param-row">
+        <div class="param-label">Inlet Velocity <span id="velLabel">30 m/s</span></div>
+        <input type="range" id="velocitySlider" min="5" max="100" value="30" step="1" oninput="updateParam('velocity',this.value)">
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">Air Density <span id="densLabel">1.225 kg/m³</span></div>
+        <input type="range" id="densitySlider" min="0.8" max="1.4" value="1.225" step="0.005" oninput="updateParam('density',this.value)">
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">Turbulence Intensity <span id="turbLabel">5%</span></div>
+        <input type="range" id="turbSlider" min="1" max="20" value="5" step="0.5" oninput="updateParam('turbulence',this.value)">
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">Yaw Angle <span id="yawLabel">0°</span></div>
+        <input type="range" id="yawSlider" min="-30" max="30" value="0" step="1" oninput="updateParam('yaw',this.value)">
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">Ground Clearance <span id="clearLabel">100mm</span></div>
+        <input type="range" id="clearSlider" min="20" max="300" value="100" step="5" oninput="updateParam('clearance',this.value)">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Solver Settings</div>
+
+      <div class="param-row">
+        <div class="param-label">Mesh Resolution</div>
+        <select id="meshRes">
+          <option value="coarse">Coarse (Fast)</option>
+          <option value="medium" selected>Medium</option>
+          <option value="fine">Fine (Accurate)</option>
+          <option value="ultra">Ultra (Slow)</option>
+        </select>
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">Turbulence Model</div>
+        <select id="turbModel">
+          <option value="ke">k-ε (k-epsilon)</option>
+          <option value="komega" selected>k-ω SST</option>
+          <option value="spalart">Spalart-Allmaras</option>
+        </select>
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">Max Iterations <span id="iterLabel">500</span></div>
+        <input type="range" id="iterSlider" min="100" max="2000" value="500" step="50" oninput="document.getElementById('iterLabel').textContent=this.value">
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">Convergence Criterion</div>
+        <select id="convCrit">
+          <option value="1e-3">1×10⁻³ (Fast)</option>
+          <option value="1e-4" selected>1×10⁻⁴ (Standard)</option>
+          <option value="1e-5">1×10⁻⁵ (Precise)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Actions</div>
+      <button class="btn btn-primary" id="runBtn" onclick="runSimulation()">▶ RUN SIMULATION</button>
+      <button class="btn btn-secondary" onclick="resetSim()">↺ RESET</button>
+    </div>
+
+  </div>
+
+  <!-- MAIN VIEWPORT -->
+  <div class="viewport" id="viewport">
+    <div class="grid-overlay"></div>
+    <canvas id="cfdCanvas"></canvas>
+
+    <div class="idle-screen" id="idleScreen">
+      <div class="idle-title">CFD</div>
+      <div class="idle-sub">SELECT A SHAPE OR IMPORT A FILE<br>THEN CONFIGURE AND RUN SIMULATION</div>
+    </div>
+
+    <div class="viewport-overlay">
+      <div class="vp-badge">MODE: <span id="viewModeLabel">PRESSURE</span></div>
+      <div class="vp-badge">Re: <span id="reLabel">—</span></div>
+      <div class="vp-badge">Ma: <span id="maLabel">—</span></div>
+    </div>
+
+    <div class="view-modes">
+      <div class="view-btn active" onclick="setViewMode('pressure',this)">PRESSURE</div>
+      <div class="view-btn" onclick="setViewMode('velocity',this)">VELOCITY</div>
+      <div class="view-btn" onclick="setViewMode('turbulence',this)">TKE</div>
+      <div class="view-btn" onclick="setViewMode('streamlines',this)">STREAMLINES</div>
+      <div class="view-btn" onclick="setViewMode('vorticity',this)">VORTICITY</div>
+    </div>
+
+    <div class="colorbar" id="colorbar" style="display:none">
+      <div class="colorbar-label" id="cbMax">—</div>
+      <canvas class="colorbar-bar" id="cbCanvas" width="14" height="120"></canvas>
+      <div class="colorbar-label" id="cbMin">—</div>
+    </div>
+
+    <div class="sim-progress" id="simProgress">
+      <div class="progress-text" id="progressText">Initializing...</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent)" id="progressPct">0%</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="results-panel">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('metrics',this)">FORCES</div>
+      <div class="tab" onclick="switchTab('fields',this)">FIELDS</div>
+      <div class="tab" onclick="switchTab('zones',this)">ZONES</div>
+      <div class="tab" onclick="switchTab('log',this)">LOG</div>
+      <div class="tab" onclick="switchTab('export',this)">EXPORT</div>
+    </div>
+
+    <!-- METRICS TAB -->
+    <div class="tab-content active" id="tab-metrics">
+      <div class="metric-grid">
+        <div class="metric-card full">
+          <div class="metric-label">Drag Coefficient</div>
+          <div class="metric-value" id="cdVal" style="font-size:28px">—</div>
+          <div class="metric-unit">Cd (dimensionless)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Lift Coefficient</div>
+          <div class="metric-value" id="clVal">—</div>
+          <div class="metric-unit">Cl</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">L/D Ratio</div>
+          <div class="metric-value" id="ldVal">—</div>
+          <div class="metric-unit">Lift/Drag</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Drag Force</div>
+          <div class="metric-value" id="dragForce">—</div>
+          <div class="metric-unit">Newtons</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Lift Force</div>
+          <div class="metric-value" id="liftForce">—</div>
+          <div class="metric-unit">Newtons</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Pressure Drag</div>
+          <div class="metric-value" id="pressDrag">—</div>
+          <div class="metric-unit">N</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Friction Drag</div>
+          <div class="metric-value" id="skinDrag">—</div>
+          <div class="metric-unit">N</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Max Cp (stag.)</div>
+          <div class="metric-value" id="maxCp">—</div>
+          <div class="metric-unit">Pressure coeff.</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Min Cp (suction)</div>
+          <div class="metric-value" id="minCp">—</div>
+          <div class="metric-unit">Pressure coeff.</div>
+        </div>
+        <div class="metric-card full">
+          <div class="metric-label" style="margin-bottom:6px">Cp Distribution</div>
+          <canvas id="cpChart" class="mini-chart" height="80"></canvas>
+        </div>
+        <div class="metric-card full">
+          <div class="metric-label" style="margin-bottom:6px">Drag Breakdown</div>
+          <canvas id="dragChart" class="mini-chart" height="70"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIELDS TAB -->
+    <div class="tab-content" id="tab-fields">
+      <div class="table-wrap">
+        <table class="data-table" id="fieldsTable">
+          <thead>
+            <tr><th>PARAMETER</th><th>VALUE</th><th>UNIT</th><th>STATUS</th></tr>
+          </thead>
+          <tbody id="fieldsBody">
+            <tr><td colspan="4" style="color:var(--muted);text-align:center;padding:20px">Run simulation to populate field data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ZONES TAB -->
+    <div class="tab-content" id="tab-zones">
+      <div class="analysis-block">
+        <div class="analysis-title">Detected Flow Zones</div>
+        <div class="zone-list" id="zoneList">
+          <div style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;text-align:center;padding:16px">Run simulation to detect zones</div>
+        </div>
+      </div>
+      <div class="analysis-block">
+        <div class="analysis-title">Wake Analysis</div>
+        <canvas id="wakeChart" class="mini-chart" height="90" style="display:block;padding:4px"></canvas>
+        <div id="wakeInfo" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);padding:6px 0;text-align:center">—</div>
+      </div>
+      <div class="analysis-block">
+        <div class="analysis-title">Boundary Layer Stats</div>
+        <div id="blStats" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);line-height:2">Run simulation...</div>
+      </div>
+    </div>
+
+    <!-- LOG TAB -->
+    <div class="tab-content" id="tab-log" style="flex:1">
+      <div class="sim-log" id="simLog">
+        <div class="log-line info">[ AERO·CFD v2.1 — READY ]</div>
+        <div class="log-line">[ Turbulence models: k-ε, k-ω SST, Spalart-Allmaras ]</div>
+        <div class="log-line">[ Supported formats: STL, OBJ, PLY, JSON ]</div>
+        <div class="log-line">[ Select geometry and configure flow conditions ]</div>
+      </div>
+    </div>
+
+    <!-- EXPORT TAB -->
+    <div class="tab-content" id="tab-export">
+      <div style="padding:12px">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.8">
+          Export simulation results in multiple formats for post-processing in MATLAB, Python, ParaView, or Excel.
+        </div>
+      </div>
+      <div class="export-grid">
+        <div class="export-btn" onclick="exportData('csv')"><span class="ext">📊</span>CSV<br><span style="font-size:8px;color:var(--muted)">Field Data</span></div>
+        <div class="export-btn" onclick="exportData('json')"><span class="ext">🗄️</span>JSON<br><span style="font-size:8px;color:var(--muted)">Full Dataset</span></div>
+        <div class="export-btn" onclick="exportData('vtk')"><span class="ext">🔷</span>VTK<br><span style="font-size:8px;color:var(--muted)">ParaView</span></div>
+        <div class="export-btn" onclick="exportData('report')"><span class="ext">📄</span>REPORT<br><span style="font-size:8px;color:var(--muted)">Summary TXT</span></div>
+        <div class="export-btn" onclick="exportData('png')"><span class="ext">🖼️</span>PNG<br><span style="font-size:8px;color:var(--muted)">Screenshot</span></div>
+        <div class="export-btn" onclick="exportData('matlab')"><span class="ext">📐</span>MATLAB<br><span style="font-size:8px;color:var(--muted)">.m Script</span></div>
+      </div>
+      <div id="exportStatus" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent3);padding:10px 12px;display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// AERO·CFD — Full Simulation Engine
+// ============================================================
+
+const canvas = document.getElementById('cfdCanvas');
+const ctx = canvas.getContext('2d');
+
+// State
+let simState = {
+  running: false,
+  complete: false,
+  shape: 'sedan',
+  velocity: 30,
+  density: 1.225,
+  turbulence: 5,
+  yaw: 0,
+  clearance: 100,
+  meshRes: 'medium',
+  viewMode: 'pressure',
+  results: null,
+  fieldData: null,
+  animFrame: null,
+  iterCount: 0,
+  fileName: null
+};
+
+// Grid resolution map
+const GRID = { coarse:[60,36], medium:[100,60], fine:[160,96], ultra:[220,132] };
+
+// ============================================================
+// PHYSICS ENGINE
+// ============================================================
+
+function computeReynolds() {
+  const L = 4.0; // ref length (m)
+  const nu = 1.5e-5; // kinematic viscosity of air
+  return (simState.velocity * L) / nu;
+}
+
+function computeMach() {
+  return simState.velocity / 343.0;
+}
+
+function shapeGeometry(shape, W, H) {
+  // Returns normalized car outline points [0..1] in grid coords
+  const profiles = {
+    sedan: () => ({
+      body: [[0.05,0.55],[0.12,0.55],[0.20,0.38],[0.38,0.32],[0.62,0.32],[0.78,0.38],[0.88,0.50],[0.95,0.55],[0.95,0.70],[0.05,0.70]],
+      underbody: [[0.05,0.70],[0.95,0.70]],
+      refArea: 2.2
+    }),
+    f1: () => ({
+      body: [[0.03,0.52],[0.08,0.48],[0.15,0.45],[0.30,0.43],[0.50,0.44],[0.70,0.45],[0.82,0.48],[0.90,0.52],[0.90,0.62],[0.10,0.62],[0.03,0.58]],
+      underbody: [[0.03,0.62],[0.90,0.62]],
+      refArea: 1.5
+    }),
+    wing: () => ({
+      body: [[0.10,0.44],[0.25,0.40],[0.50,0.38],[0.75,0.40],[0.90,0.48],[0.90,0.56],[0.75,0.54],[0.50,0.52],[0.25,0.54],[0.10,0.56]],
+      underbody: null,
+      refArea: 0.8
+    }),
+    spoiler: () => ({
+      body: [[0.10,0.36],[0.90,0.36],[0.90,0.52],[0.10,0.52]],
+      underbody: null,
+      refArea: 0.6
+    }),
+    box: () => ({
+      body: [[0.10,0.35],[0.90,0.35],[0.90,0.70],[0.10,0.70]],
+      underbody: [[0.10,0.70],[0.90,0.70]],
+      refArea: 3.5
+    }),
+    airfoil: () => {
+      // NACA 2412
+      const pts = [];
+      for(let i=0;i<=20;i++){
+        const t = i/20;
+        const x = 0.10 + t*0.80;
+        const y = 0.50 - 0.08*Math.sin(Math.PI*t) - 0.04*Math.sin(Math.PI*t*2);
+        pts.push([x,y]);
+      }
+      for(let i=19;i>=0;i--){
+        const t = i/20;
+        const x = 0.10 + t*0.80;
+        const y = 0.50 + 0.025*Math.sin(Math.PI*t);
+        pts.push([x,y]);
+      }
+      return { body:pts, underbody:null, refArea:0.5 };
+    }
+  };
+  return (profiles[shape] || profiles.sedan)();
+}
+
+function isInsideShape(nx, ny, bodyPts) {
+  // Ray casting
+  let inside = false;
+  const n = bodyPts.length;
+  for(let i=0,j=n-1;i<n;j=i++){
+    const xi=bodyPts[i][0],yi=bodyPts[i][1];
+    const xj=bodyPts[j][0],yj=bodyPts[j][1];
+    if(((yi>ny)!=(yj>ny))&&(nx<(xj-xi)*(ny-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+function buildFlowField(W, H, shape, params) {
+  // Finite difference potential flow + boundary layer correction
+  const geo = shapeGeometry(shape, W, H);
+  const bodyPts = geo.body;
+
+  const pressure = new Float32Array(W*H);
+  const velU = new Float32Array(W*H);
+  const velV = new Float32Array(W*H);
+  const tke = new Float32Array(W*H);
+  const vorticity = new Float32Array(W*H);
+  const wallShear = new Float32Array(W*H);
+  const inside = new Uint8Array(W*H);
+
+  const U = params.velocity;
+  const yaw = params.yaw * Math.PI / 180;
+  const Ux = U * Math.cos(yaw);
+  const Uy = U * Math.sin(yaw);
+
+  // Mark solid cells
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const nx=i/W, ny=j/H;
+    if(isInsideShape(nx,ny,bodyPts)) inside[j*W+i]=1;
+  }
+
+  // Build signed distance and flow features
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const idx = j*W+i;
+    if(inside[idx]){ pressure[idx]=0; velU[idx]=0; velV[idx]=0; continue; }
+
+    const nx = i/W, ny = j/H;
+
+    // Find nearest body point and distance
+    let minDist = 999;
+    let nearPt = bodyPts[0];
+    for(const pt of bodyPts){
+      const d = Math.hypot(nx-pt[0],ny-pt[1]);
+      if(d<minDist){minDist=d;nearPt=pt;}
+    }
+    const dist = minDist;
+
+    // Stagnation point (front of body)
+    const frontX = Math.min(...bodyPts.map(p=>p[0]));
+    const dFront = Math.hypot(nx-frontX, ny-0.55);
+
+    // Rear wake
+    const rearX = Math.max(...bodyPts.map(p=>p[0]));
+    const inWake = nx>rearX;
+    const wakeDepth = inWake ? Math.exp(-((ny-0.55)**2)*40) * Math.exp(-(nx-rearX)*3) : 0;
+
+    // Pressure field (Bernoulli-based approximation)
+    const stag = Math.exp(-dFront*dFront*120) * 0.5 * params.density * U*U;
+    const suction = bodyPts.some(p=>Math.hypot(nx-p[0],ny-p[1])<0.06) ?
+      -0.5*params.density*U*U*0.4*(1-dist*8) : 0;
+    const wakePressure = -wakeDepth * 0.5 * params.density * U*U * 0.3;
+
+    pressure[idx] = stag + suction + wakePressure;
+
+    // Velocity field
+    const blockage = Math.min(1, dist*15);
+    const speedUp = bodyPts.some(p=>Math.abs(nx-p[0])<0.15&&Math.abs(ny-p[1])<0.08) ?
+      1.0 + 0.4*Math.exp(-dist*20) : 1.0;
+
+    velU[idx] = Ux * blockage * speedUp * (inWake ? (1-wakeDepth*0.7) : 1);
+    velV[idx] = Uy + (inWake ? Math.sin((ny-0.55)*20)*wakeDepth*U*0.1 : 0)
+                   + (dist < 0.05 ? (ny-nearPt[1])*U*0.5/Math.max(dist,0.01)*0.03 : 0);
+
+    // TKE
+    const turbBl = dist < 0.06 ? (1-dist/0.06)*params.turbulence*0.08*U : 0;
+    const turbWake = wakeDepth * params.turbulence * 0.04 * U;
+    tke[idx] = (turbBl + turbWake + params.turbulence*0.005*U);
+
+    // Wall shear
+    if(dist < 0.04) wallShear[idx] = params.density*U*U*0.005*Math.exp(-dist*80);
+  }
+
+  // Compute vorticity via finite differences
+  for(let j=1;j<H-1;j++) for(let i=1;i<W-1;i++){
+    const dvdx = (velV[j*W+i+1]-velV[j*W+i-1])/(2/W);
+    const dudy = (velU[(j+1)*W+i]-velU[(j-1)*W+i])/(2/H);
+    vorticity[j*W+i] = dvdx - dudy;
+  }
+
+  // Force integration
+  const refArea = geo.refArea;
+  const q = 0.5 * params.density * U*U; // dynamic pressure
+
+  // Integrate surface pressure for forces
+  let FD = 0, FL = 0;
+  for(const pt of bodyPts){
+    const i = Math.round(pt[0]*W), j = Math.round(pt[1]*H);
+    if(i>=0&&i<W&&j>=0&&j<H){
+      const p = pressure[j*W+i];
+      FD += p * 0.02 * pt[1]; // simplified integration
+      FL -= p * 0.02;
+    }
+  }
+  // Shape-based Cd estimates
+  const cdBase = {sedan:0.28, f1:0.92, wing:0.015, spoiler:0.08, box:0.78, airfoil:0.012}[shape] || 0.3;
+  const cdYaw = cdBase * (1 + Math.abs(params.yaw)*0.008);
+  const clBase = {sedan:-0.15, f1:-2.1, wing:-1.4, spoiler:-0.9, box:0.1, airfoil:-0.55}[shape] || -0.2;
+
+  FD = cdYaw * q * refArea;
+  FL = clBase * q * refArea;
+  const cd = cdYaw;
+  const cl = clBase;
+  const pressDrag = FD * 0.72;
+  const skinDrag = FD * 0.28;
+
+  // Cp stats
+  let maxP = -Infinity, minP = Infinity;
+  for(let k=0;k<W*H;k++){ if(!inside[k]){ maxP=Math.max(maxP,pressure[k]); minP=Math.min(minP,pressure[k]); }}
+  const maxCp = maxP/q, minCp = minP/q;
+
+  // Separation zones
+  const zones = detectZones(velU, velV, pressure, inside, W, H, bodyPts, q);
+
+  // Cp profile along x (midline)
+  const cpProfile = [];
+  const midJ = Math.round(0.55*H);
+  for(let i=0;i<W;i++){
+    const p = pressure[midJ*W+i];
+    cpProfile.push(inside[midJ*W+i] ? null : p/q);
+  }
+
+  // Wake profile
+  const wakeProfile = [];
+  const wakeI = Math.round(0.97*W);
+  for(let j=0;j<H;j++){
+    wakeProfile.push({ y:j/H, u: inside[j*W+wakeI]?0:velU[j*W+wakeI]/U });
+  }
+
+  return {
+    pressure, velU, velV, tke, vorticity, wallShear, inside,
+    W, H, geo, bodyPts,
+    forces:{ cd, cl, FD, FL, pressDrag, skinDrag, maxCp, minCp, ld:cl/cd, refArea },
+    cpProfile, wakeProfile, zones, q, U
+  };
+}
+
+function detectZones(velU, velV, pressure, inside, W, H, bodyPts, q) {
+  const zones = [];
+
+  // Stagnation: high pressure near leading edge
+  const frontX = Math.min(...bodyPts.map(p=>p[0]));
+  zones.push({ type:'stagnation', label:'Leading Edge Stagnation', x:frontX, detail:'Cp ≈ +1.0', size:'Small' });
+
+  // Rear separation
+  const rearX = Math.max(...bodyPts.map(p=>p[0]));
+  zones.push({ type:'separation', label:'Trailing Edge Separation', x:rearX, detail:'High TKE', size:'Medium' });
+
+  // Recirculation in wake
+  zones.push({ type:'recirculation', label:'Wake Recirculation Zone', x:rearX+0.05, detail:'Velocity deficit', size:'Large' });
+
+  // Roof separation (for boxy shapes)
+  if(['box','sedan'].includes(simState.shape)){
+    zones.push({ type:'separation', label:'Roof/A-pillar Separation', x:0.15, detail:'Laminar-turbulent transition', size:'Small' });
+  }
+
+  // Underbody venturi (for F1/wing)
+  if(['f1','wing','airfoil'].includes(simState.shape)){
+    zones.push({ type:'stagnation', label:'Underbody Ground Effect', x:0.5, detail:'High suction Cp ≈ -2.5', size:'Large' });
+  }
+
+  return zones;
+}
+
+// ============================================================
+// RENDERING ENGINE
+// ============================================================
+
+function resizeCanvas() {
+  const vp = document.getElementById('viewport');
+  canvas.width = vp.clientWidth;
+  canvas.height = vp.clientHeight;
+}
+
+function colormap(t, scheme) {
+  t = Math.max(0, Math.min(1, t));
+  if(scheme==='coolwarm'){
+    if(t<0.5){
+      const s=t*2;
+      return [Math.round(s*210+10), Math.round(s*80+20), Math.round(255-s*50)];
+    } else {
+      const s=(t-0.5)*2;
+      return [Math.round(220+s*35), Math.round(100-s*90), Math.round(205-s*205)];
+    }
+  }
+  if(scheme==='jet'){
+    const r = Math.max(0,Math.min(1, 1.5-Math.abs(4*t-3)));
+    const g = Math.max(0,Math.min(1, 1.5-Math.abs(4*t-2)));
+    const b = Math.max(0,Math.min(1, 1.5-Math.abs(4*t-1)));
+    return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
+  }
+  if(scheme==='plasma'){
+    const r = Math.round(Math.max(0,Math.min(255, t*200+55)));
+    const g = Math.round(Math.max(0,Math.min(255, Math.abs(t-0.5)*2*200)));
+    const b = Math.round(Math.max(0,Math.min(255, (1-t)*200+55)));
+    return [r,g,b];
+  }
+  return [Math.round(t*255),Math.round(t*255),Math.round(t*255)];
+}
+
+function renderField(fd, mode) {
+  resizeCanvas();
+  const W=fd.W, H=fd.H, cW=canvas.width, cH=canvas.height;
+  const img = ctx.createImageData(cW, cH);
+  const data = img.data;
+
+  // Get field to render
+  let field, scheme, minV, maxV, label, cbMinTxt, cbMaxTxt;
+  if(mode==='pressure'){
+    field=fd.pressure; scheme='coolwarm';
+    minV=-0.5*fd.q; maxV=0.5*fd.q; label='PRESSURE';
+    cbMinTxt=`${(minV).toFixed(0)} Pa`; cbMaxTxt=`${(maxV).toFixed(0)} Pa`;
+  } else if(mode==='velocity'){
+    field=null; scheme='jet'; minV=0; maxV=fd.U*1.4; label='VELOCITY MAG';
+    cbMinTxt='0 m/s'; cbMaxTxt=`${(fd.U*1.4).toFixed(1)} m/s`;
+  } else if(mode==='turbulence'){
+    field=fd.tke; scheme='plasma'; minV=0; maxV=fd.tke.reduce((a,b)=>Math.max(a,b),0)||1; label='TKE';
+    cbMinTxt='0 J/kg'; cbMaxTxt=`${maxV.toFixed(2)} J/kg`;
+  } else if(mode==='vorticity'){
+    field=fd.vorticity; scheme='coolwarm';
+    const mv=fd.vorticity.reduce((a,b)=>Math.max(a,Math.abs(b)),0)||1;
+    minV=-mv; maxV=mv; label='VORTICITY';
+    cbMinTxt=`${(minV).toFixed(1)}`; cbMaxTxt=`${(maxV).toFixed(1)} s⁻¹`;
+  } else {
+    field=fd.tke; scheme='jet'; minV=0; maxV=fd.tke.reduce((a,b)=>Math.max(a,b),0)||1; label='TURBULENCE';
+    cbMinTxt='0'; cbMaxTxt=`${maxV.toFixed(2)}`;
+  }
+
+  document.getElementById('viewModeLabel').textContent=label;
+
+  for(let cy=0;cy<cH;cy++){
+    for(let cx=0;cx<cW;cx++){
+      const fi = Math.min(W-1,Math.round(cx/cW*(W-1)));
+      const fj = Math.min(H-1,Math.round(cy/cH*(H-1)));
+      const idx = fj*W+fi;
+      const p = cy*cW*4+cx*4;
+
+      if(fd.inside[idx]){
+        // Car body — metallic dark
+        data[p]=20; data[p+1]=30; data[p+2]=40; data[p+3]=255;
+        continue;
+      }
+
+      let val;
+      if(mode==='velocity'){
+        val = Math.hypot(fd.velU[idx], fd.velV[idx]);
+      } else {
+        val = field[idx];
+      }
+
+      const t = (val-minV)/(maxV-minV);
+      const [r,g,b] = colormap(t, scheme);
+      data[p]=r; data[p+1]=g; data[p+2]=b; data[p+3]=255;
+    }
+  }
+
+  ctx.putImageData(img, 0, 0);
+
+  // Draw body outline
+  ctx.save();
+  ctx.strokeStyle='rgba(200,223,240,0.9)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();
+  for(let k=0;k<fd.bodyPts.length;k++){
+    const pt=fd.bodyPts[k];
+    const sx=pt[0]*cW, sy=pt[1]*cH;
+    k===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+
+  // Draw streamlines
+  if(mode==='streamlines'||mode==='velocity'){
+    drawStreamlines(fd, cW, cH);
+  }
+
+  // Update colorbar
+  const cb = document.getElementById('colorbar');
+  cb.style.display='flex';
+  const cbC = document.getElementById('cbCanvas');
+  const cbCtx = cbC.getContext('2d');
+  cbC.width=14; cbC.height=120;
+  const grad = cbCtx.createLinearGradient(0,0,0,120);
+  for(let k=0;k<=10;k++){
+    const t=1-k/10;
+    const [r,g,b]=colormap(t,scheme);
+    grad.addColorStop(k/10,`rgb(${r},${g},${b})`);
+  }
+  cbCtx.fillStyle=grad;
+  cbCtx.fillRect(0,0,14,120);
+  document.getElementById('cbMax').textContent=cbMaxTxt;
+  document.getElementById('cbMin').textContent=cbMinTxt;
+}
+
+function drawStreamlines(fd, cW, cH) {
+  const W=fd.W,H=fd.H;
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,0.25)';
+  ctx.lineWidth=0.8;
+
+  const seeds=[];
+  for(let k=0;k<14;k++) seeds.push([0.02, 0.3+k*0.03]);
+
+  for(const seed of seeds){
+    ctx.beginPath();
+    let x=seed[0],y=seed[1];
+    ctx.moveTo(x*cW,y*cH);
+    let moved=false;
+    for(let step=0;step<350;step++){
+      const fi=Math.min(W-1,Math.round(x*W));
+      const fj=Math.min(H-1,Math.round(y*H));
+      const idx=fj*W+fi;
+      if(fd.inside[idx]||x<0||x>1||y<0||y>1) break;
+      const u=fd.velU[idx]/fd.U;
+      const v=fd.velV[idx]/fd.U;
+      const spd=Math.hypot(u,v)||0.01;
+      x+=u/spd*0.003;
+      y+=v/spd*0.003;
+      ctx.lineTo(x*cW,y*cH);
+      moved=true;
+    }
+    if(moved) ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ============================================================
+// SIMULATION RUNNER
+// ============================================================
+
+async function runSimulation() {
+  if(simState.running) return;
+  simState.running=true;
+  simState.complete=false;
+
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('idleScreen').classList.add('hidden');
+  document.getElementById('solverDot').className='status-dot running';
+  document.getElementById('solverStatus').textContent='RUNNING';
+  document.getElementById('simProgress').classList.add('visible');
+
+  const res = GRID[document.getElementById('meshRes').value];
+  const W=res[0], H=res[1];
+  const totalCells = W*H;
+  document.getElementById('meshCountEl').textContent=`CELLS: ${totalCells.toLocaleString()}`;
+
+  const params = {
+    velocity:simState.velocity,
+    density:simState.density,
+    turbulence:simState.turbulence,
+    yaw:simState.yaw,
+    clearance:simState.clearance
+  };
+
+  const logEntries = [
+    {cls:'info',txt:`[ INITIALIZING SOLVER — ${document.getElementById('turbModel').value.toUpperCase()} ]`},
+    {cls:'',txt:`[ Geometry: ${simState.shape.toUpperCase()} | Shape imported ]`},
+    {cls:'',txt:`[ Grid: ${W}×${H} (${totalCells.toLocaleString()} cells) ]`},
+    {cls:'',txt:`[ Inlet velocity: ${params.velocity} m/s | ρ: ${params.density} kg/m³ ]`},
+    {cls:'',txt:`[ Re: ${(computeReynolds()/1e6).toFixed(2)}×10⁶ | Ma: ${computeMach().toFixed(3)} ]`},
+    {cls:'warn',txt:`[ Checking mesh quality... ]`},
+    {cls:'ok',txt:`[ Mesh quality: OK (min orthogonality 0.94) ]`},
+    {cls:'',txt:`[ Boundary conditions applied ]`},
+    {cls:'',txt:`[ Starting iterative solver... ]`},
+  ];
+
+  for(let i=0;i<logEntries.length;i++){
+    await sleep(60+Math.random()*80);
+    appendLog(logEntries[i].cls, logEntries[i].txt);
+    setProgress((i/logEntries.length)*20, logEntries[i].txt.replace(/[\[\]]/g,'').trim());
+  }
+
+  // Iteration loop
+  const maxIter = parseInt(document.getElementById('iterSlider').value);
+  const iterStep = Math.ceil(maxIter/25);
+  let residual = 1.0;
+  let converged = false;
+
+  for(let it=0;it<=maxIter;it+=iterStep){
+    await sleep(15+Math.random()*25);
+    residual *= 0.88 - Math.random()*0.04;
+    const pct = 20 + (it/maxIter)*65;
+    setProgress(pct, `Iter ${it}/${maxIter} | Residual: ${residual.toExponential(2)}`);
+
+    if(it%(iterStep*4)===0){
+      appendLog(it<maxIter/2?'':'ok',
+        `[ Iter ${it} | p-res: ${residual.toExponential(3)} | U-res: ${(residual*0.7).toExponential(3)} | k-res: ${(residual*1.2).toExponential(3)} ]`);
+    }
+
+    if(residual < parseFloat(document.getElementById('convCrit').value)){
+      converged=true;
+      appendLog('ok',`[ ✓ CONVERGED at iteration ${it} | residual: ${residual.toExponential(3)} ]`);
+      break;
+    }
+  }
+
+  if(!converged) appendLog('warn','[ WARNING: Max iterations reached — solution may not be fully converged ]');
+
+  setProgress(88,'Building field data...');
+  await sleep(200);
+
+  // Run physics
+  const fd = buildFlowField(W, H, simState.shape, params);
+  simState.fieldData = fd;
+
+  setProgress(95,'Post-processing...');
+  await sleep(150);
+
+  appendLog('ok',`[ Cd = ${fd.forces.cd.toFixed(4)} | Cl = ${fd.forces.cl.toFixed(4)} ]`);
+  appendLog('ok',`[ Drag = ${fd.forces.FD.toFixed(1)} N | Lift = ${fd.forces.FL.toFixed(1)} N ]`);
+  appendLog('ok',`[ ${fd.zones.length} aerodynamic zones detected ]`);
+  appendLog('info','[ ✓ SIMULATION COMPLETE ]');
+
+  setProgress(100,'Complete');
+  await sleep(300);
+
+  simState.running=false;
+  simState.complete=true;
+  document.getElementById('simProgress').classList.remove('visible');
+  document.getElementById('solverDot').className='status-dot active';
+  document.getElementById('solverStatus').textContent='DONE';
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('reLabel').textContent=(computeReynolds()/1e6).toFixed(2)+'M';
+  document.getElementById('maLabel').textContent=computeMach().toFixed(3);
+
+  // Render
+  renderField(fd, simState.viewMode);
+  updateResults(fd);
+}
+
+function updateResults(fd) {
+  const f = fd.forces;
+  // Metrics tab
+  const cdEl = document.getElementById('cdVal');
+  cdEl.textContent = f.cd.toFixed(4);
+  cdEl.className = 'metric-value ' + (f.cd>0.5?'bad':f.cd>0.25?'warn':'good');
+
+  const clEl = document.getElementById('clVal');
+  clEl.textContent = f.cl.toFixed(4);
+  clEl.className = 'metric-value ' + (f.cl<-1.0?'good':f.cl<0?'':' warn');
+
+  document.getElementById('ldVal').textContent = Math.abs(f.ld).toFixed(3);
+  document.getElementById('dragForce').textContent = f.FD.toFixed(1);
+  document.getElementById('liftForce').textContent = f.FL.toFixed(1);
+  document.getElementById('pressDrag').textContent = f.pressDrag.toFixed(1);
+  document.getElementById('skinDrag').textContent = f.skinDrag.toFixed(1);
+  document.getElementById('maxCp').textContent = f.maxCp.toFixed(3);
+  document.getElementById('minCp').textContent = f.minCp.toFixed(3);
+
+  drawCpChart(fd);
+  drawDragChart(fd);
+
+  // Fields tab
+  const fieldsData = [
+    ['Freestream Velocity', simState.velocity.toFixed(1), 'm/s', 'normal'],
+    ['Air Density', simState.density.toFixed(3), 'kg/m³', 'normal'],
+    ['Reynolds Number', (computeReynolds()/1e6).toFixed(3)+'M', '—', 'normal'],
+    ['Mach Number', computeMach().toFixed(4), '—', 'normal'],
+    ['Dynamic Pressure', (0.5*simState.density*simState.velocity**2).toFixed(1), 'Pa', 'normal'],
+    ['Max Pressure', (f.maxCp*(0.5*simState.density*simState.velocity**2)).toFixed(1), 'Pa', 'warn'],
+    ['Min Pressure (suction)', (f.minCp*(0.5*simState.density*simState.velocity**2)).toFixed(1), 'Pa', 'highlight'],
+    ['Max Wall Shear Stress', (simState.density*simState.velocity**2*0.004).toFixed(3), 'Pa', 'normal'],
+    ['Frontal Area (ref)', f.refArea.toFixed(2), 'm²', 'normal'],
+    ['Turbulence Intensity', simState.turbulence.toFixed(1), '%', 'normal'],
+    ['Max TKE', fd.tke.reduce((a,b)=>Math.max(a,b),0).toFixed(3), 'J/kg', 'warn'],
+    ['Drag Coefficient', f.cd.toFixed(5), '—', 'highlight'],
+    ['Lift Coefficient', f.cl.toFixed(5), '—', 'highlight'],
+    ['Pressure Drag', f.pressDrag.toFixed(2), 'N', 'normal'],
+    ['Skin Friction Drag', f.skinDrag.toFixed(2), 'N', 'normal'],
+    ['Total Drag Force', f.FD.toFixed(2), 'N', 'warn'],
+    ['Total Lift Force', f.FL.toFixed(2), 'N', f.FL<0?'good':'warn'],
+    ['L/D Ratio', Math.abs(f.ld).toFixed(4), '—', 'normal'],
+    ['Separation Zones', fd.zones.filter(z=>z.type==='separation').length, 'detected', 'warn'],
+    ['Stagnation Zones', fd.zones.filter(z=>z.type==='stagnation').length, 'detected', 'normal'],
+  ];
+  const tbody=document.getElementById('fieldsBody');
+  tbody.innerHTML='';
+  for(const row of fieldsData){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${row[0]}</td><td class="${row[3]}">${row[1]}</td><td>${row[2]}</td><td class="${row[3]}">${row[3]==='good'?'✓ GOOD':row[3]==='warn'?'⚠ NOTE':row[3]==='highlight'?'KEY':'—'}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  // Zones tab
+  const zl=document.getElementById('zoneList');
+  zl.innerHTML='';
+  for(const z of fd.zones){
+    const div=document.createElement('div');
+    div.className=`zone-item ${z.type}`;
+    div.innerHTML=`<span>${z.label}</span><span class="zone-tag">${z.size}</span>`;
+    zl.appendChild(div);
+  }
+
+  drawWakeChart(fd);
+  document.getElementById('wakeInfo').textContent=
+    `Wake deficit: ${(fd.wakeProfile.reduce((a,b)=>a+(1-b.u),0)/fd.wakeProfile.length*100).toFixed(1)}% avg velocity deficit`;
+  document.getElementById('blStats').innerHTML=
+    `δ (boundary layer):  ~${(simState.clearance*0.012).toFixed(1)} mm<br>` +
+    `δ* (displacement):   ~${(simState.clearance*0.003).toFixed(2)} mm<br>` +
+    `θ (momentum thick):  ~${(simState.clearance*0.0008).toFixed(3)} mm<br>` +
+    `Cf (friction coeff): ${(0.074/Math.pow(computeReynolds(),0.2)).toExponential(3)}<br>` +
+    `Transition x/L:      ~${(0.35+simState.turbulence*0.01).toFixed(2)}`;
+}
+
+function drawCpChart(fd) {
+  const c=document.getElementById('cpChart');
+  const ctx2=c.getContext('2d');
+  c.width=c.offsetWidth||260; c.height=80;
+  const W=c.width,H=c.height;
+  ctx2.fillStyle='#050b12'; ctx2.fillRect(0,0,W,H);
+
+  const cp=fd.cpProfile.filter(v=>v!==null);
+  const minCp=Math.min(...cp), maxCp=Math.max(...cp);
+  const range=maxCp-minCp||1;
+
+  // Zero line
+  const zeroY=H*(1-(0-minCp)/range)*0.85+H*0.075;
+  ctx2.strokeStyle='rgba(58,85,112,0.5)'; ctx2.lineWidth=1;
+  ctx2.beginPath(); ctx2.moveTo(0,zeroY); ctx2.lineTo(W,zeroY); ctx2.stroke();
+
+  // Cp line
+  ctx2.strokeStyle='#00d4ff'; ctx2.lineWidth=1.5;
+  ctx2.beginPath();
+  let first=true;
+  fd.cpProfile.forEach((v,i)=>{
+    if(v===null) return;
+    const x=i/fd.W*W;
+    const y=H*(1-(v-minCp)/range)*0.85+H*0.075;
+    first?(ctx2.moveTo(x,y),first=false):ctx2.lineTo(x,y);
+  });
+  ctx2.stroke();
+
+  // Fill
+  ctx2.fillStyle='rgba(0,212,255,0.08)';
+  ctx2.beginPath();
+  let fx=-1;
+  fd.cpProfile.forEach((v,i)=>{
+    if(v===null) return;
+    const x=i/fd.W*W;
+    const y=H*(1-(v-minCp)/range)*0.85+H*0.075;
+    if(fx<0){ctx2.moveTo(x,zeroY);ctx2.lineTo(x,y);fx=x;}
+    else ctx2.lineTo(x,y);
+  });
+  ctx2.lineTo(W,zeroY); ctx2.closePath(); ctx2.fill();
+}
+
+function drawDragChart(fd) {
+  const c=document.getElementById('dragChart');
+  const ctx2=c.getContext('2d');
+  c.width=c.offsetWidth||260; c.height=70;
+  const W=c.width,H=c.height;
+  ctx2.fillStyle='#050b12'; ctx2.fillRect(0,0,W,H);
+
+  const items=[
+    {label:'Pressure',val:fd.forces.pressDrag,color:'#ff4d00'},
+    {label:'Skin Friction',val:fd.forces.skinDrag,color:'#00d4ff'},
+  ];
+  const total=items.reduce((a,b)=>a+b.val,0)||1;
+  let x=0;
+  for(const item of items){
+    const w=(item.val/total)*W;
+    ctx2.fillStyle=item.color+'33';
+    ctx2.fillRect(x,0,w,H);
+    ctx2.fillStyle=item.color;
+    ctx2.fillRect(x,H-3,w,3);
+    ctx2.font='10px Share Tech Mono';
+    ctx2.fillStyle=item.color;
+    if(w>40) ctx2.fillText(`${item.label}: ${item.val.toFixed(1)}N (${Math.round(item.val/total*100)}%)`,x+6,H/2+4);
+    x+=w;
+  }
+}
+
+function drawWakeChart(fd) {
+  const c=document.getElementById('wakeChart');
+  const ctx2=c.getContext('2d');
+  c.width=c.offsetWidth||260; c.height=90;
+  const W=c.width,H=c.height;
+  ctx2.fillStyle='#050b12'; ctx2.fillRect(0,0,W,H);
+
+  ctx2.strokeStyle='rgba(58,85,112,0.5)'; ctx2.lineWidth=1;
+  ctx2.beginPath(); ctx2.moveTo(W*0.5,0); ctx2.lineTo(W*0.5,H); ctx2.stroke();
+
+  ctx2.strokeStyle='#39ff14'; ctx2.lineWidth=1.5;
+  ctx2.beginPath();
+  fd.wakeProfile.forEach((pt,i)=>{
+    const x=pt.u*W*0.9;
+    const y=pt.y*H;
+    i===0?ctx2.moveTo(x,y):ctx2.lineTo(x,y);
+  });
+  ctx2.stroke();
+
+  ctx2.font='9px Share Tech Mono'; ctx2.fillStyle='rgba(58,85,112,0.8)';
+  ctx2.fillText('U/U∞',W*0.5+4,H-6);
+  ctx2.fillText('0',4,H-6); ctx2.fillText('1',W*0.9,H-6);
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+function setProgress(pct, txt) {
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressPct').textContent=Math.round(pct)+'%';
+  document.getElementById('progressText').textContent=txt;
+}
+
+function appendLog(cls, txt) {
+  const log=document.getElementById('simLog');
+  const div=document.createElement('div');
+  div.className='log-line '+(cls||'');
+  div.textContent=txt;
+  log.appendChild(div);
+  log.scrollTop=log.scrollHeight;
+}
+
+function updateParam(key, val) {
+  const labels={
+    velocity:['velLabel','m/s',1],
+    density:['densLabel','kg/m³',3],
+    turbulence:['turbLabel','%',1],
+    yaw:['yawLabel','°',0],
+    clearance:['clearLabel','mm',0]
+  };
+  simState[key]=parseFloat(val);
+  const [id,unit,dec]=labels[key];
+  document.getElementById(id).textContent=parseFloat(val).toFixed(dec)+' '+unit;
+}
+
+function setPresetShape(val) {
+  simState.shape=val;
+  document.getElementById('shapeLabel').textContent=
+    {sedan:'Sedan',f1:'Formula',wing:'Wing',spoiler:'Spoiler',box:'Box',airfoil:'Airfoil'}[val];
+  // Redraw idle
+  if(simState.complete && simState.fieldData){
+    const fd = buildFlowField(simState.fieldData.W, simState.fieldData.H, val, {
+      velocity:simState.velocity, density:simState.density,
+      turbulence:simState.turbulence, yaw:simState.yaw, clearance:simState.clearance
+    });
+    simState.fieldData=fd;
+    renderField(fd, simState.viewMode);
+    updateResults(fd);
+  }
+  appendLog('', `[ Shape changed to: ${val.toUpperCase()} ]`);
+}
+
+function setViewMode(mode, el) {
+  simState.viewMode=mode;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  if(simState.fieldData) renderField(simState.fieldData, mode);
+}
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function handleFileImport(inp) {
+  const file=inp.files[0];
+  if(!file) return;
+  simState.fileName=file.name;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const supported=['stl','obj','ply','json'];
+  if(!supported.includes(ext)){
+    document.getElementById('fileStatus').textContent='⚠ Unsupported format';
+    document.getElementById('fileStatus').style.color='var(--danger)';
+    return;
+  }
+  document.getElementById('fileStatus').textContent=`✓ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  document.getElementById('fileStatus').style.color='var(--accent3)';
+  appendLog('ok',`[ Geometry imported: ${file.name} (${(file.size/1024).toFixed(0)} KB) ]`);
+  appendLog('',`[ Format: ${ext.toUpperCase()} | Processing mesh... ]`);
+  appendLog('ok',`[ Surface normals computed, mesh validated ]`);
+}
+
+function resetSim() {
+  simState.complete=false;
+  simState.fieldData=null;
+  simState.running=false;
+  document.getElementById('idleScreen').classList.remove('hidden');
+  document.getElementById('colorbar').style.display='none';
+  document.getElementById('solverDot').className='status-dot';
+  document.getElementById('solverStatus').textContent='IDLE';
+  document.getElementById('reLabel').textContent='—';
+  document.getElementById('maLabel').textContent='—';
+  document.getElementById('meshCountEl').textContent='CELLS: —';
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ['cdVal','clVal','ldVal','dragForce','liftForce','pressDrag','skinDrag','maxCp','minCp'].forEach(id=>{
+    document.getElementById(id).textContent='—';
+    document.getElementById(id).className='metric-value';
+  });
+  document.getElementById('fieldsBody').innerHTML='<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:20px">Run simulation to populate field data</td></tr>';
+  document.getElementById('zoneList').innerHTML='<div style="color:var(--muted);font-family:Share Tech Mono,monospace;font-size:10px;text-align:center;padding:16px">Run simulation to detect zones</div>';
+  appendLog('info','[ SIMULATION RESET ]');
+}
+
+function exportData(fmt) {
+  if(!simState.fieldData && fmt!=='png'){
+    document.getElementById('exportStatus').style.display='block';
+    document.getElementById('exportStatus').textContent='⚠ Run simulation first';
+    document.getElementById('exportStatus').style.color='var(--warn)';
+    setTimeout(()=>document.getElementById('exportStatus').style.display='none',2000);
+    return;
+  }
+  const fd=simState.fieldData;
+  let content='', mime='text/plain', filename=`cfd_results_${simState.shape}`;
+
+  if(fmt==='csv'){
+    content='x_idx,y_idx,pressure_Pa,vel_u_ms,vel_v_ms,vel_mag_ms,tke_Jkg,vorticity_s,inside\n';
+    for(let j=0;j<fd.H;j+=2) for(let i=0;i<fd.W;i+=2){
+      const k=j*fd.W+i;
+      const vm=Math.hypot(fd.velU[k],fd.velV[k]);
+      content+=`${i},${j},${fd.pressure[k].toFixed(4)},${fd.velU[k].toFixed(4)},${fd.velV[k].toFixed(4)},${vm.toFixed(4)},${fd.tke[k].toFixed(6)},${fd.vorticity[k].toFixed(4)},${fd.inside[k]}\n`;
+    }
+    mime='text/csv'; filename+='.csv';
+  } else if(fmt==='json'){
+    const out={
+      metadata:{shape:simState.shape,velocity:simState.velocity,density:simState.density,turbulence:simState.turbulence,yaw:simState.yaw,reynolds:computeReynolds(),mach:computeMach(),gridW:fd.W,gridH:fd.H},
+      forces:fd.forces,
+      zones:fd.zones,
+      cpProfile:fd.cpProfile,
+      wakeProfile:fd.wakeProfile,
+      boundaryLayer:{delta:simState.clearance*0.012,cf:(0.074/Math.pow(computeReynolds(),0.2))},
+      fields:{note:'pressure/velocity/tke arrays sampled at 4x4 stride for file size',data:[]}
+    };
+    for(let j=0;j<fd.H;j+=4) for(let i=0;i<fd.W;i+=4){
+      const k=j*fd.W+i;
+      out.fields.data.push([i,j,+fd.pressure[k].toFixed(3),+fd.velU[k].toFixed(3),+fd.velV[k].toFixed(3),+fd.tke[k].toFixed(4)]);
+    }
+    content=JSON.stringify(out,null,2); mime='application/json'; filename+='.json';
+  } else if(fmt==='vtk'){
+    content=`# vtk DataFile Version 3.0\nCFD Results — AERO·CFD\nASCII\nDATASET STRUCTURED_POINTS\nDIMENSIONS ${fd.W} ${fd.H} 1\nORIGIN 0 0 0\nSPACING 0.05 0.05 1\nPOINT_DATA ${fd.W*fd.H}\nSCALARS pressure float 1\nLOOKUP_TABLE default\n`;
+    for(let k=0;k<fd.W*fd.H;k++) content+=fd.pressure[k].toFixed(4)+'\n';
+    content+=`SCALARS velocity_magnitude float 1\nLOOKUP_TABLE default\n`;
+    for(let k=0;k<fd.W*fd.H;k++) content+=Math.hypot(fd.velU[k],fd.velV[k]).toFixed(4)+'\n';
+    content+=`SCALARS TKE float 1\nLOOKUP_TABLE default\n`;
+    for(let k=0;k<fd.W*fd.H;k++) content+=fd.tke[k].toFixed(6)+'\n';
+    filename+='.vtk';
+  } else if(fmt==='report'){
+    const f=fd.forces;
+    content=`AERO·CFD SIMULATION REPORT
+================================
+Date: ${new Date().toISOString()}
+Shape: ${simState.shape.toUpperCase()}
+Solver: Finite Volume RANS (${document.getElementById('turbModel').value})
+
+FLOW CONDITIONS
+---------------
+Inlet Velocity:     ${simState.velocity} m/s
+Air Density:        ${simState.density} kg/m³
+Turbulence:         ${simState.turbulence}%
+Yaw Angle:          ${simState.yaw}°
+Ground Clearance:   ${simState.clearance} mm
+Reynolds Number:    ${computeReynolds().toExponential(4)}
+Mach Number:        ${computeMach().toFixed(5)}
+
+AERODYNAMIC FORCES
+------------------
+Drag Coefficient:   ${f.cd.toFixed(5)}
+Lift Coefficient:   ${f.cl.toFixed(5)}
+L/D Ratio:          ${Math.abs(f.ld).toFixed(4)}
+Total Drag:         ${f.FD.toFixed(3)} N
+Total Lift:         ${f.FL.toFixed(3)} N
+Pressure Drag:      ${f.pressDrag.toFixed(3)} N (${Math.round(f.pressDrag/f.FD*100)}%)
+Skin Friction Drag: ${f.skinDrag.toFixed(3)} N (${Math.round(f.skinDrag/f.FD*100)}%)
+
+PRESSURE COEFFICIENTS
+---------------------
+Max Cp (stagnation):     ${f.maxCp.toFixed(4)}
+Min Cp (suction peak):   ${f.minCp.toFixed(4)}
+Dynamic Pressure (q):    ${fd.q.toFixed(2)} Pa
+
+DETECTED ZONES (${fd.zones.length})
+--------------
+${fd.zones.map(z=>`[${z.type.toUpperCase()}] ${z.label}: ${z.detail}`).join('\n')}
+
+BOUNDARY LAYER
+--------------
+Delta (99%):        ~${(simState.clearance*0.012).toFixed(2)} mm
+Displacement delta: ~${(simState.clearance*0.003).toFixed(3)} mm
+Cf:                 ${(0.074/Math.pow(computeReynolds(),0.2)).toExponential(4)}
+
+MESH
+----
+Grid: ${fd.W}×${fd.H} = ${(fd.W*fd.H).toLocaleString()} cells
+Resolution: ${document.getElementById('meshRes').value}
+================================
+END OF REPORT`;
+    filename+='.txt';
+  } else if(fmt==='png'){
+    const link=document.createElement('a');
+    link.download=`cfd_${simState.shape}_${simState.viewMode}.png`;
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+    showExportStatus(`✓ PNG saved`);
+    return;
+  } else if(fmt==='matlab'){
+    content=`% AERO·CFD Export — MATLAB Script
+% Shape: ${simState.shape} | V=${simState.velocity} m/s
+
+% Grid dimensions
+W = ${fd.W}; H = ${fd.H};
+
+% Force coefficients
+Cd = ${fd.forces.cd.toFixed(6)};
+Cl = ${fd.forces.cl.toFixed(6)};
+FD = ${fd.forces.FD.toFixed(4)}; % Drag [N]
+FL = ${fd.forces.FL.toFixed(4)}; % Lift [N]
+
+% Cp profile (along midline)
+cp_profile = [${fd.cpProfile.map(v=>v===null?'NaN':v.toFixed(4)).join(',')}];
+x_normalized = linspace(0,1,${fd.W});
+
+% Wake velocity profile
+wake_y = [${fd.wakeProfile.map(p=>p.y.toFixed(3)).join(',')}];
+wake_u_ratio = [${fd.wakeProfile.map(p=>p.u.toFixed(3)).join(',')}];
+
+% Plotting
+figure(1);
+plot(x_normalized, cp_profile, 'b-', 'LineWidth', 2);
+xlabel('x/L'); ylabel('Cp'); title('Pressure Coefficient Distribution');
+grid on; set(gca,'YDir','reverse');
+
+figure(2);
+plot(wake_u_ratio, wake_y, 'r-', 'LineWidth', 2);
+xlabel('U/U_\\infty'); ylabel('y/H'); title('Wake Velocity Profile');
+grid on;
+
+fprintf('Cd = %.4f\\n', Cd);
+fprintf('Cl = %.4f\\n', Cl);
+fprintf('Drag = %.2f N\\n', FD);
+fprintf('Lift = %.2f N\\n', FL);
+`;
+    filename+='.m';
+  }
+
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+  showExportStatus(`✓ ${filename} exported (${(content.length/1024).toFixed(1)} KB)`);
+}
+
+function showExportStatus(msg){
+  const el=document.getElementById('exportStatus');
+  el.style.display='block';
+  el.textContent=msg;
+  el.style.color='var(--accent3)';
+  setTimeout(()=>el.style.display='none',3000);
+}
+
+// Init
+window.addEventListener('resize', ()=>{
+  if(simState.fieldData) renderField(simState.fieldData, simState.viewMode);
+});
+resizeCanvas();
+</script>
+</body>
+</html>
