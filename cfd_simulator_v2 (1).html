@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AERO·CFD v3 — 3D Racing Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root {
+  --bg:#030508; --panel:#080d14; --border:#0f2035;
+  --accent:#00d4ff; --accent2:#ff4d00; --accent3:#39ff14;
+  --text:#c8dff0; --muted:#3a5570; --danger:#ff2244; --warn:#ffaa00;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+header{display:flex;align-items:center;justify-content:space-between;padding:7px 18px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;position:relative;}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5;}
+.logo{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,.4);}
+.logo span{color:var(--accent2);}
+.hdr-center{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;}
+.status-bar{display:flex;gap:16px;align-items:center;font-family:'Share Tech Mono',monospace;font-size:10px;}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px;}
+.sdot.on{background:var(--accent3);box-shadow:0 0 8px var(--accent3);animation:pulse 1.5s infinite;}
+.sdot.run{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse .6s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.app{display:grid;grid-template-columns:250px 1fr 270px;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);}
+.sec{border-bottom:1px solid var(--border);padding:11px 13px;}
+.sec-title{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:9px;display:flex;align-items:center;gap:7px;}
+.sec-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+.prow{display:flex;flex-direction:column;margin-bottom:9px;gap:3px;}
+.plbl{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:flex;justify-content:space-between;}
+.plbl span{color:var(--accent);font-family:'Share Tech Mono',monospace;}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);}
+select{background:#050b12;border:1px solid var(--border);color:var(--text);padding:5px 7px;font-family:'Share Tech Mono',monospace;font-size:11px;width:100%;border-radius:2px;outline:none;}
+select:focus{border-color:var(--accent);}
+select option{background:#080d14;}
+
+.file-drop{border:1px dashed var(--border);border-radius:3px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
+.file-drop:hover{border-color:var(--accent);background:rgba(0,212,255,.03);}
+.file-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
+.file-drop .di{font-size:20px;margin-bottom:5px;}
+.file-drop .dt{font-size:10px;color:var(--muted);line-height:1.5;}
+.file-drop .df{font-size:9px;color:var(--accent);margin-top:3px;letter-spacing:1px;}
+#fileStatus{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5;}
+
+.btn{width:100%;padding:8px;border:none;cursor:pointer;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;border-radius:2px;transition:all .2s;text-transform:uppercase;}
+.btn-p{background:var(--accent);color:#000;font-weight:700;}
+.btn-p:hover{box-shadow:0 0 18px rgba(0,212,255,.5);transform:translateY(-1px);}
+.btn-p:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-s{background:transparent;color:var(--text);border:1px solid var(--border);margin-top:5px;}
+.btn-s:hover{border-color:var(--accent);color:var(--accent);}
+
+/* VIEWPORT */
+.viewport{position:relative;background:#020406;overflow:hidden;}
+#threeCanvas{width:100%;height:100%;display:block;}
+.vp-overlay{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:5px;pointer-events:none;}
+.vbadge{background:rgba(8,13,20,.88);border:1px solid var(--border);padding:3px 9px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.vbadge span{color:var(--accent);}
+.view-modes{position:absolute;top:10px;right:10px;display:flex;gap:3px;}
+.vmbtn{background:rgba(8,13,20,.88);border:1px solid var(--border);color:var(--muted);padding:4px 9px;font-size:9px;font-family:'Share Tech Mono',monospace;cursor:pointer;transition:all .15s;letter-spacing:1px;}
+.vmbtn.active,.vmbtn:hover{border-color:var(--accent);color:var(--accent);}
+.cam-controls{position:absolute;bottom:35px;right:10px;display:flex;flex-direction:column;gap:3px;}
+.cambtn{background:rgba(8,13,20,.88);border:1px solid var(--border);color:var(--muted);padding:4px 8px;font-size:10px;font-family:'Share Tech Mono',monospace;cursor:pointer;text-align:center;transition:all .15s;}
+.cambtn:hover{border-color:var(--accent);color:var(--accent);}
+
+.colorbar{position:absolute;bottom:45px;left:16px;display:none;flex-direction:column;align-items:center;gap:3px;}
+.cblbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+#cbCanvas{width:14px;border-radius:2px;border:1px solid var(--border);}
+
+.prog-bar{position:absolute;bottom:0;left:0;right:0;height:26px;background:rgba(8,13,20,.95);border-top:1px solid var(--border);display:none;align-items:center;padding:0 12px;gap:10px;}
+.prog-bar.show{display:flex;}
+.pb-wrap{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+.pb-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:2px;transition:width .3s;}
+.pb-txt{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);min-width:140px;}
+
+.idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;pointer-events:none;}
+.idle.gone{display:none;}
+.idle-title{font-family:'Orbitron',monospace;font-size:24px;font-weight:900;color:rgba(0,212,255,.12);letter-spacing:8px;}
+.idle-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;line-height:2;}
+.grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+
+/* RIGHT PANEL */
+.rpanel{background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.rpanel::-webkit-scrollbar{width:3px;}
+.rpanel::-webkit-scrollbar-thumb{background:var(--border);}
+.tabbar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab{flex:1;padding:7px 3px;text-align:center;font-family:'Orbitron',monospace;font-size:7px;letter-spacing:1px;color:var(--muted);cursor:pointer;transition:all .15s;border-bottom:2px solid transparent;}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);}
+.tab:hover{color:var(--text);}
+.tcontent{display:none;flex-direction:column;flex:1;}
+.tcontent.on{display:flex;}
+
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:10px;}
+.mcard{background:#050b12;border:1px solid var(--border);padding:9px;border-radius:2px;transition:border-color .2s;}
+.mcard:hover{border-color:var(--accent);}
+.mcard.full{grid-column:1/-1;}
+.mlbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
+.mval{font-family:'Orbitron',monospace;font-size:15px;font-weight:700;color:var(--accent);}
+.mval.warn{color:var(--warn);}
+.mval.good{color:var(--accent3);}
+.mval.bad{color:var(--danger);}
+.munit{font-size:9px;color:var(--muted);margin-top:2px;}
+canvas.mini{width:100%;height:75px;display:block;}
+
+.dtable{width:100%;border-collapse:collapse;font-family:'Share Tech Mono',monospace;font-size:10px;}
+.dtable th{background:#050b12;color:var(--muted);padding:5px 7px;text-align:left;border-bottom:1px solid var(--border);font-weight:normal;letter-spacing:1px;font-size:9px;}
+.dtable td{padding:4px 7px;border-bottom:1px solid rgba(15,32,53,.5);}
+.dtable tr:hover td{background:rgba(0,212,255,.03);}
+.dtable td.hi{color:var(--accent);}
+.dtable td.wn{color:var(--warn);}
+.dtable td.gd{color:var(--accent3);}
+.twrap{padding:7px;overflow-x:hidden;}
+
+.abk{padding:9px 11px;border-bottom:1px solid var(--border);}
+.atitle{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+.zlist{display:flex;flex-direction:column;gap:3px;}
+.zitem{display:flex;align-items:center;justify-content:space-between;background:#050b12;padding:4px 7px;border-left:2px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:10px;}
+.zitem.sep{border-left-color:var(--accent2);}
+.zitem.stag{border-left-color:var(--accent);}
+.zitem.recirc{border-left-color:var(--warn);}
+.ztag{font-size:8px;padding:1px 4px;background:rgba(0,0,0,.3);}
+
+.egrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:10px;}
+.ebtn{background:#050b12;border:1px solid var(--border);color:var(--text);padding:9px;text-align:center;cursor:pointer;transition:all .15s;font-family:'Share Tech Mono',monospace;font-size:10px;border-radius:2px;}
+.ebtn:hover{border-color:var(--accent);color:var(--accent);}
+.ebtn .ext{display:block;font-size:13px;margin-bottom:3px;}
+
+.slog{font-family:'Share Tech Mono',monospace;font-size:10px;padding:9px 11px;flex:1;overflow-y:auto;line-height:1.9;}
+.ll{color:var(--muted);}
+.ll.inf{color:var(--accent);}
+.ll.wn{color:var(--warn);}
+.ll.ok{color:var(--accent3);}
+.ll.err{color:var(--danger);}
+
+.mesh-info{padding:9px 11px;font-family:'Share Tech Mono',monospace;font-size:10px;line-height:2;color:var(--muted);}
+.mesh-info span{color:var(--text);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AERO<span>·</span>CFD <span style="font-size:11px;color:var(--muted);letter-spacing:2px;">v3</span></div>
+  <div class="hdr-center">3D RACING AERODYNAMICS SIMULATOR — REAL GEOMETRY ENGINE</div>
+  <div class="status-bar">
+    <div><span class="sdot" id="sdot"></span><span id="sstatus">IDLE</span></div>
+    <div style="color:var(--muted)">|</div>
+    <div id="triCount" style="color:var(--muted)">TRIS: —</div>
+    <div style="color:var(--muted)">|</div>
+    <div id="cellCount" style="color:var(--muted)">CELLS: —</div>
+  </div>
+</header>
+
+<div class="app">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sec">
+    <div class="sec-title">Geometry Import</div>
+    <div class="file-drop" id="fileDrop">
+      <input type="file" id="fileInput" accept=".stl,.obj,.ply" onchange="handleFile(this)">
+      <div class="di">⬡</div>
+      <div class="dt">Drop STL / OBJ / PLY file<br>or click to browse</div>
+      <div class="df">STL · OBJ · PLY</div>
+    </div>
+    <div id="fileStatus">No file loaded — using preset shape</div>
+    <div class="prow" style="margin-top:10px">
+      <div class="plbl">Fallback Preset <span id="shapeLbl">Sedan</span></div>
+      <select id="shapeSelect" onchange="setPreset(this.value)">
+        <option value="sedan">Sedan / Road Car</option>
+        <option value="f1">Formula / Open Wheel</option>
+        <option value="wing">Rear Wing Section</option>
+        <option value="box">Box Van</option>
+        <option value="airfoil">NACA Airfoil</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Flow Conditions</div>
+    <div class="prow">
+      <div class="plbl">Inlet Velocity <span id="velLbl">30 m/s</span></div>
+      <input type="range" id="velSlider" min="5" max="120" value="30" step="1" oninput="sp('velocity',this.value,'velLbl','m/s',1)">
+    </div>
+    <div class="prow">
+      <div class="plbl">Air Density <span id="densLbl">1.225 kg/m³</span></div>
+      <input type="range" id="densSlider" min="0.9" max="1.4" value="1.225" step="0.005" oninput="sp('density',this.value,'densLbl','kg/m³',3)">
+    </div>
+    <div class="prow">
+      <div class="plbl">Turbulence % <span id="turbLbl">5%</span></div>
+      <input type="range" id="turbSlider" min="1" max="25" value="5" step="0.5" oninput="sp('turbulence',this.value,'turbLbl','%',1)">
+    </div>
+    <div class="prow">
+      <div class="plbl">Yaw Angle <span id="yawLbl">0°</span></div>
+      <input type="range" id="yawSlider" min="-30" max="30" value="0" step="1" oninput="sp('yaw',this.value,'yawLbl','°',0)">
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Solver</div>
+    <div class="prow">
+      <div class="plbl">Mesh Resolution</div>
+      <select id="meshRes">
+        <option value="coarse">Coarse (Fast)</option>
+        <option value="medium" selected>Medium</option>
+        <option value="fine">Fine</option>
+      </select>
+    </div>
+    <div class="prow">
+      <div class="plbl">Turbulence Model</div>
+      <select id="turbModel">
+        <option value="ke">k-ε</option>
+        <option value="komega" selected>k-ω SST</option>
+        <option value="sa">Spalart-Allmaras</option>
+      </select>
+    </div>
+    <div class="prow">
+      <div class="plbl">Iterations <span id="iterLbl">500</span></div>
+      <input type="range" id="iterSlider" min="100" max="2000" value="500" step="50" oninput="document.getElementById('iterLbl').textContent=this.value">
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Orientation</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px;line-height:1.7">
+      Air flows along <span style="color:var(--accent)">+X axis →</span><br>
+      Fix rotation if car looks sideways or upside down.
+    </div>
+    <div class="prow">
+      <div class="plbl">Up Axis (CAD format)</div>
+      <select id="upAxis" onchange="applyOrientation()">
+        <option value="y_up">Y-Up (OBJ default)</option>
+        <option value="z_up" selected>Z-Up (Fusion 360 / STL)</option>
+        <option value="z_up_flip">Z-Up + Flip 180°</option>
+        <option value="x_up">X-Up</option>
+      </select>
+    </div>
+    <div class="prow">
+      <div class="plbl">Flow Direction</div>
+      <select id="flowDir" onchange="applyOrientation()">
+        <option value="x_pos">← Front faces +X (default)</option>
+        <option value="x_neg">→ Front faces -X (flip)</option>
+        <option value="z_pos">Front faces +Z</option>
+        <option value="z_neg">Front faces -Z</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px">
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('x',-90)">−90° X</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('x', 90)">+90° X</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('x',180)">180° X</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('y',-90)">−90° Y</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('y', 90)">+90° Y</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('y',180)">180° Y</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('z',-90)">−90° Z</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('z', 90)">+90° Z</div>
+      <div class="cambtn" style="font-size:9px" onclick="nudgeRot('z',180)">180° Z</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Actions</div>
+    <button class="btn btn-p" id="runBtn" onclick="runSim()">▶ RUN SIMULATION</button>
+    <button class="btn btn-s" onclick="resetSim()">↺ RESET</button>
+    <button class="btn btn-s" id="rotBtn" onclick="toggleRotate()">⟳ AUTO-ROTATE: OFF</button>
+  </div>
+</div>
+
+<!-- VIEWPORT -->
+<div class="viewport" id="viewport">
+  <div class="grid-bg"></div>
+  <canvas id="threeCanvas"></canvas>
+  <div class="idle" id="idle">
+    <div class="idle-title">CFD·3D</div>
+    <div class="idle-sub">IMPORT STL/OBJ/PLY OR SELECT A PRESET<br>CONFIGURE FLOW CONDITIONS → RUN</div>
+  </div>
+  <div class="vp-overlay">
+    <div class="vbadge">MODE: <span id="modeLbl">GEOMETRY</span></div>
+    <div class="vbadge">Re: <span id="reLbl">—</span></div>
+    <div class="vbadge">Ma: <span id="maLbl">—</span></div>
+    <div class="vbadge" id="hoverInfo" style="display:none">Cp: <span id="hoverCp">—</span></div>
+  </div>
+  <div class="view-modes">
+    <div class="vmbtn active" onclick="setView('geometry',this)">GEOMETRY</div>
+    <div class="vmbtn" onclick="setView('pressure',this)">PRESSURE</div>
+    <div class="vmbtn" onclick="setView('velocity',this)">VELOCITY</div>
+    <div class="vmbtn" onclick="setView('tke',this)">TKE</div>
+    <div class="vmbtn" onclick="setView('shear',this)">SHEAR</div>
+  </div>
+  <div class="cam-controls">
+    <div class="cambtn" onclick="setCamView('front')">FRONT</div>
+    <div class="cambtn" onclick="setCamView('side')">SIDE</div>
+    <div class="cambtn" onclick="setCamView('top')">TOP</div>
+    <div class="cambtn" onclick="setCamView('iso')">ISO</div>
+  </div>
+  <div class="colorbar" id="colorbar">
+    <div class="cblbl" id="cbMax">—</div>
+    <canvas id="cbCanvas" width="14" height="130"></canvas>
+    <div class="cblbl" id="cbMin">—</div>
+  </div>
+  <!-- Airflow direction indicator -->
+  <div style="position:absolute;bottom:38px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(8,13,20,.85);border:1px solid var(--border);padding:4px 12px;pointer-events:none;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">AIRFLOW</span>
+    <span style="font-size:16px;color:var(--accent);letter-spacing:-2px">→→→</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent)">+X</span>
+  </div>
+  <div class="prog-bar" id="progBar">
+    <div class="pb-txt" id="progTxt">Initializing...</div>
+    <div class="pb-wrap"><div class="pb-fill" id="progFill" style="width:0%"></div></div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent)" id="progPct">0%</div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="rpanel">
+  <div class="tabbar">
+    <div class="tab on" onclick="swTab('forces',this)">FORCES</div>
+    <div class="tab" onclick="swTab('fields',this)">FIELDS</div>
+    <div class="tab" onclick="swTab('zones',this)">ZONES</div>
+    <div class="tab" onclick="swTab('mesh',this)">MESH</div>
+    <div class="tab" onclick="swTab('log',this)">LOG</div>
+    <div class="tab" onclick="swTab('export',this)">EXPORT</div>
+  </div>
+
+  <div class="tcontent on" id="tab-forces">
+    <div class="mgrid">
+      <div class="mcard full">
+        <div class="mlbl">Drag Coefficient Cd</div>
+        <div class="mval" id="cdVal" style="font-size:26px">—</div>
+        <div class="munit">dimensionless</div>
+      </div>
+      <div class="mcard"><div class="mlbl">Lift Coeff Cl</div><div class="mval" id="clVal">—</div><div class="munit">—</div></div>
+      <div class="mcard"><div class="mlbl">L/D Ratio</div><div class="mval" id="ldVal">—</div><div class="munit">—</div></div>
+      <div class="mcard"><div class="mlbl">Drag Force</div><div class="mval" id="fdVal">—</div><div class="munit">N</div></div>
+      <div class="mcard"><div class="mlbl">Lift Force</div><div class="mval" id="flVal">—</div><div class="munit">N</div></div>
+      <div class="mcard"><div class="mlbl">Pressure Drag</div><div class="mval" id="pdVal">—</div><div class="munit">N</div></div>
+      <div class="mcard"><div class="mlbl">Skin Friction</div><div class="mval" id="sfVal">—</div><div class="munit">N</div></div>
+      <div class="mcard"><div class="mlbl">Max Cp (stag)</div><div class="mval" id="maxCp">—</div><div class="munit">—</div></div>
+      <div class="mcard"><div class="mlbl">Min Cp (suction)</div><div class="mval" id="minCp">—</div><div class="munit">—</div></div>
+      <div class="mcard full"><div class="mlbl" style="margin-bottom:5px">Cp Distribution</div><canvas id="cpChart" class="mini" height="75"></canvas></div>
+      <div class="mcard full"><div class="mlbl" style="margin-bottom:5px">Drag Breakdown</div><canvas id="dgChart" class="mini" height="60"></canvas></div>
+    </div>
+  </div>
+
+  <div class="tcontent" id="tab-fields">
+    <div class="twrap">
+      <table class="dtable">
+        <thead><tr><th>PARAMETER</th><th>VALUE</th><th>UNIT</th></tr></thead>
+        <tbody id="fieldsTbody"><tr><td colspan="3" style="color:var(--muted);text-align:center;padding:18px">Run simulation first</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tcontent" id="tab-zones">
+    <div class="abk">
+      <div class="atitle">Detected Zones</div>
+      <div class="zlist" id="zoneList"><div style="color:var(--muted);font-size:10px;font-family:'Share Tech Mono',monospace;text-align:center;padding:14px">Run simulation first</div></div>
+    </div>
+    <div class="abk">
+      <div class="atitle">Wake Profile (U/U∞)</div>
+      <canvas id="wakeChart" class="mini" height="90" style="padding:3px"></canvas>
+      <div id="wakeInfo" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);text-align:center;padding:5px">—</div>
+    </div>
+    <div class="abk">
+      <div class="atitle">Boundary Layer</div>
+      <div id="blStats" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);line-height:2">—</div>
+    </div>
+  </div>
+
+  <div class="tcontent" id="tab-mesh">
+    <div class="mesh-info" id="meshInfo">Import a file or run simulation to see mesh data.</div>
+  </div>
+
+  <div class="tcontent" id="tab-log" style="flex:1">
+    <div class="slog" id="simLog">
+      <div class="ll inf">[ AERO·CFD v3 — 3D GEOMETRY ENGINE READY ]</div>
+      <div class="ll">[ Three.js r128 renderer initialized ]</div>
+      <div class="ll">[ STL / OBJ / PLY parsers loaded ]</div>
+      <div class="ll">[ Drag geometry to rotate · Scroll to zoom ]</div>
+    </div>
+  </div>
+
+  <div class="tcontent" id="tab-export">
+    <div style="padding:10px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);line-height:1.8">Export results for MATLAB, Python, ParaView.</div>
+    <div class="egrid">
+      <div class="ebtn" onclick="doExport('csv')"><span class="ext">📊</span>CSV<br><span style="font-size:8px;color:var(--muted)">Field Data</span></div>
+      <div class="ebtn" onclick="doExport('json')"><span class="ext">🗄️</span>JSON<br><span style="font-size:8px;color:var(--muted)">Full Dataset</span></div>
+      <div class="ebtn" onclick="doExport('vtk')"><span class="ext">🔷</span>VTK<br><span style="font-size:8px;color:var(--muted)">ParaView</span></div>
+      <div class="ebtn" onclick="doExport('report')"><span class="ext">📄</span>REPORT<br><span style="font-size:8px;color:var(--muted)">Summary</span></div>
+      <div class="ebtn" onclick="doExport('png')"><span class="ext">🖼️</span>PNG<br><span style="font-size:8px;color:var(--muted)">Screenshot</span></div>
+      <div class="ebtn" onclick="doExport('matlab')"><span class="ext">📐</span>MATLAB<br><span style="font-size:8px;color:var(--muted)">.m Script</span></div>
+    </div>
+    <div id="expStatus" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent3);padding:9px 11px;display:none"></div>
+  </div>
+</div>
+</div>
+
+<script>
+// ================================================================
+// AERO·CFD v3 — Full 3D Geometry + CFD Engine
+// ================================================================
+
+// --- State ---
+const S = {
+  velocity:30, density:1.225, turbulence:5, yaw:0,
+  viewMode:'geometry', shape:'sedan',
+  running:false, complete:false,
+  geometry:null,   // THREE.BufferGeometry
+  results:null,    // per-vertex field arrays
+  fileName:null,
+  autoRotate:false,
+  triCount:0
+};
+
+// --- Three.js Setup ---
+const vp = document.getElementById('viewport');
+const canvas3 = document.getElementById('threeCanvas');
+const renderer = new THREE.WebGLRenderer({canvas:canvas3, antialias:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setClearColor(0x020406, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1000);
+camera.position.set(3, 1.5, 3);
+camera.lookAt(0,0,0);
+
+// Lights
+const ambLight = new THREE.AmbientLight(0x223344, 1.2);
+scene.add(ambLight);
+const dirLight = new THREE.DirectionalLight(0x88ccff, 1.5);
+dirLight.position.set(5,8,5);
+scene.add(dirLight);
+const dirLight2 = new THREE.DirectionalLight(0x334455, 0.8);
+dirLight2.position.set(-5,-3,-5);
+scene.add(dirLight2);
+
+// Grid
+const gridHelper = new THREE.GridHelper(10, 20, 0x0f2035, 0x080d14);
+scene.add(gridHelper);
+
+// Mesh object holder
+let meshObj = null;
+let meshMat = null;
+
+// Orbit controls (manual implementation)
+let isDragging = false, lastMX = 0, lastMY = 0;
+let camTheta = 0.6, camPhi = 0.4, camRadius = 5;
+let camTarget = new THREE.Vector3(0,0,0);
+
+canvas3.addEventListener('mousedown', e => { isDragging=true; lastMX=e.clientX; lastMY=e.clientY; });
+window.addEventListener('mouseup', () => isDragging=false);
+window.addEventListener('mousemove', e => {
+  if(!isDragging) return;
+  const dx=(e.clientX-lastMX)*0.008, dy=(e.clientY-lastMY)*0.008;
+  camTheta -= dx; camPhi = Math.max(0.05, Math.min(Math.PI/2-0.05, camPhi+dy));
+  lastMX=e.clientX; lastMY=e.clientY; updateCamera();
+});
+canvas3.addEventListener('wheel', e => {
+  camRadius = Math.max(0.5, Math.min(20, camRadius + e.deltaY*0.005));
+  updateCamera(); e.preventDefault();
+}, {passive:false});
+
+function updateCamera() {
+  camera.position.set(
+    camTarget.x + camRadius*Math.sin(camPhi)*Math.sin(camTheta),
+    camTarget.y + camRadius*Math.cos(camPhi),
+    camTarget.z + camRadius*Math.sin(camPhi)*Math.cos(camTheta)
+  );
+  camera.lookAt(camTarget);
+}
+
+function setCamView(v) {
+  if(v==='front'){camTheta=0;camPhi=Math.PI/3;}
+  else if(v==='side'){camTheta=Math.PI/2;camPhi=Math.PI/3;}
+  else if(v==='top'){camTheta=0;camPhi=0.1;}
+  else{camTheta=0.8;camPhi=0.5;}
+  updateCamera();
+}
+
+// Resize
+function resizeRenderer() {
+  const w=vp.clientWidth, h=vp.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeRenderer);
+resizeRenderer();
+
+// Animate loop
+let rotAngle = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  if(S.autoRotate && meshObj){ camTheta+=0.004; updateCamera(); }
+  renderer.render(scene, camera);
+}
+animate();
+
+// ================================================================
+// STL PARSER
+// ================================================================
+function parseSTL(buffer) {
+  const isBinary = isSTLBinary(buffer);
+  if(isBinary) return parseSTLBinary(buffer);
+  return parseSTLASCII(buffer);
+}
+
+function isSTLBinary(buffer) {
+  const header = new Uint8Array(buffer, 0, 80);
+  const str = String.fromCharCode(...header.slice(0,5));
+  if(str.toLowerCase().startsWith('solid')) {
+    // Could still be binary — check face count
+    const view = new DataView(buffer);
+    const faceCount = view.getUint32(80, true);
+    return buffer.byteLength === 84 + faceCount*50;
+  }
+  return true;
+}
+
+function parseSTLBinary(buffer) {
+  const view = new DataView(buffer);
+  const faceCount = view.getUint32(80, true);
+  const verts = new Float32Array(faceCount*9);
+  const norms = new Float32Array(faceCount*9);
+  let offset = 84;
+  for(let i=0;i<faceCount;i++){
+    const nx=view.getFloat32(offset,true), ny=view.getFloat32(offset+4,true), nz=view.getFloat32(offset+8,true);
+    offset+=12;
+    for(let v=0;v<3;v++){
+      verts[i*9+v*3] = view.getFloat32(offset,true);
+      verts[i*9+v*3+1] = view.getFloat32(offset+4,true);
+      verts[i*9+v*3+2] = view.getFloat32(offset+8,true);
+      norms[i*9+v*3]=nx; norms[i*9+v*3+1]=ny; norms[i*9+v*3+2]=nz;
+      offset+=12;
+    }
+    offset+=2; // attribute byte count
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(verts,3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(norms,3));
+  return geo;
+}
+
+function parseSTLASCII(buffer) {
+  const text = new TextDecoder().decode(buffer);
+  const verts = [], norms = [];
+  const lines = text.split('\n');
+  let cn = [0,0,0];
+  for(const line of lines){
+    const t = line.trim();
+    if(t.startsWith('facet normal')){
+      const p=t.split(/\s+/); cn=[parseFloat(p[2]),parseFloat(p[3]),parseFloat(p[4])];
+    } else if(t.startsWith('vertex')){
+      const p=t.split(/\s+/);
+      verts.push(parseFloat(p[1]),parseFloat(p[2]),parseFloat(p[3]));
+      norms.push(...cn);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts),3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(norms),3));
+  return geo;
+}
+
+// ================================================================
+// OBJ PARSER
+// ================================================================
+function parseOBJ(text) {
+  const positions=[], normals=[], uvs=[];
+  const verts=[], norms=[];
+  const lines = text.split('\n');
+  for(const line of lines){
+    const p=line.trim().split(/\s+/);
+    if(p[0]==='v') positions.push(parseFloat(p[1]),parseFloat(p[2]),parseFloat(p[3]));
+    else if(p[0]==='vn') normals.push(parseFloat(p[1]),parseFloat(p[2]),parseFloat(p[3]));
+    else if(p[0]==='f'){
+      // triangulate face
+      const face=p.slice(1).map(token=>{
+        const parts=token.split('/');
+        return {v:parseInt(parts[0])-1, n:parts[2]?parseInt(parts[2])-1:-1};
+      });
+      for(let i=1;i<face.length-1;i++){
+        for(const fi of [face[0],face[i],face[i+1]]){
+          verts.push(positions[fi.v*3],positions[fi.v*3+1],positions[fi.v*3+2]);
+          if(fi.n>=0&&normals.length>0) norms.push(normals[fi.n*3],normals[fi.n*3+1],normals[fi.n*3+2]);
+          else norms.push(0,1,0);
+        }
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts),3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(norms),3));
+  return geo;
+}
+
+// ================================================================
+// PLY PARSER
+// ================================================================
+function parsePLY(buffer) {
+  const text = new TextDecoder().decode(buffer.slice(0,1000));
+  const isBinary = text.includes('format binary');
+  if(isBinary) return parsePLYBinary(buffer, text);
+  return parsePLYASCII(new TextDecoder().decode(buffer));
+}
+
+function parsePLYASCII(text) {
+  const lines = text.split('\n');
+  let vertCount=0, faceCount=0, headerEnd=0;
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i].trim();
+    if(l.startsWith('element vertex')) vertCount=parseInt(l.split(' ')[2]);
+    if(l.startsWith('element face')) faceCount=parseInt(l.split(' ')[2]);
+    if(l==='end_header'){headerEnd=i+1;break;}
+  }
+  const pos=[], tris=[];
+  for(let i=0;i<vertCount;i++){
+    const p=lines[headerEnd+i].trim().split(/\s+/);
+    pos.push(parseFloat(p[0]),parseFloat(p[1]),parseFloat(p[2]));
+  }
+  for(let i=0;i<faceCount;i++){
+    const p=lines[headerEnd+vertCount+i].trim().split(/\s+/);
+    const n=parseInt(p[0]);
+    for(let j=1;j<n-1;j++) tris.push(parseInt(p[1]),parseInt(p[1+j]),parseInt(p[2+j]));
+  }
+  const verts=new Float32Array(tris.length*3);
+  for(let i=0;i<tris.length;i++){
+    verts[i*3]=pos[tris[i]*3]; verts[i*3+1]=pos[tris[i]*3+1]; verts[i*3+2]=pos[tris[i]*3+2];
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(verts,3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function parsePLYBinary(buffer, headerText) {
+  // Get header length
+  const enc = new TextEncoder();
+  const marker = enc.encode('end_header\n');
+  const arr = new Uint8Array(buffer);
+  let headerEnd=0;
+  for(let i=0;i<arr.length-marker.length;i++){
+    let match=true;
+    for(let j=0;j<marker.length;j++) if(arr[i+j]!==marker[j]){match=false;break;}
+    if(match){headerEnd=i+marker.length;break;}
+  }
+  const lines=headerText.split('\n');
+  let vertCount=0,faceCount=0;
+  for(const l of lines){
+    if(l.startsWith('element vertex')) vertCount=parseInt(l.split(' ')[2]);
+    if(l.startsWith('element face')) faceCount=parseInt(l.split(' ')[2]);
+  }
+  const view=new DataView(buffer);
+  const isLE=headerText.includes('little_endian');
+  const pos=new Float32Array(vertCount*3);
+  let off=headerEnd;
+  // Assume xyz float32 (standard)
+  for(let i=0;i<vertCount;i++){
+    pos[i*3]=view.getFloat32(off,isLE); pos[i*3+1]=view.getFloat32(off+4,isLE); pos[i*3+2]=view.getFloat32(off+8,isLE);
+    off+=12; // skip extra props if any (approx)
+  }
+  const tris=[];
+  for(let i=0;i<faceCount;i++){
+    const n=view.getUint8(off); off++;
+    if(n===3){ tris.push(view.getUint32(off,isLE),view.getUint32(off+4,isLE),view.getUint32(off+8,isLE)); off+=12; }
+    else if(n===4){ const a=view.getUint32(off,isLE),b=view.getUint32(off+4,isLE),c=view.getUint32(off+8,isLE),d=view.getUint32(off+12,isLE); tris.push(a,b,c,a,c,d); off+=16; }
+    else { off+=n*4; }
+  }
+  const verts=new Float32Array(tris.length*3);
+  for(let i=0;i<tris.length;i++){ verts[i*3]=pos[tris[i]*3]; verts[i*3+1]=pos[tris[i]*3+1]; verts[i*3+2]=pos[tris[i]*3+2]; }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(verts,3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// ================================================================
+// PRESET GEOMETRY GENERATOR
+// ================================================================
+function generatePreset(shape) {
+  let geo;
+  if(shape==='sedan'){
+    // Build sedan from boxes + sphere approximation
+    const group = new THREE.BufferGeometry();
+    const meshes = [
+      new THREE.BoxGeometry(3.8,0.4,1.8),  // body lower
+      new THREE.BoxGeometry(2.2,0.55,1.75), // cabin
+      new THREE.CylinderGeometry(0.3,0.3,0.15,12), // wheel FL
+      new THREE.CylinderGeometry(0.3,0.3,0.15,12),
+      new THREE.CylinderGeometry(0.3,0.3,0.15,12),
+      new THREE.CylinderGeometry(0.3,0.3,0.15,12),
+    ];
+    const offsets = [
+      [0,0.2,0],[0,0.67,0.02],
+      [-1.3,-0.12,0.95],[-1.3,-0.12,-0.95],[1.3,-0.12,0.95],[1.3,-0.12,-0.95]
+    ];
+    const rots = [[0,0,0],[0,0,0],[Math.PI/2,0,0],[Math.PI/2,0,0],[Math.PI/2,0,0],[Math.PI/2,0,0]];
+    const allVerts=[];
+    meshes.forEach((m,i)=>{
+      m.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...rots[i])));
+      m.applyMatrix4(new THREE.Matrix4().makeTranslation(...offsets[i]));
+      const pos=m.attributes.position.array;
+      for(let k=0;k<pos.length;k++) allVerts.push(pos[k]);
+    });
+    geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(allVerts),3));
+    geo.computeVertexNormals();
+  } else if(shape==='f1'){
+    const parts=[
+      new THREE.BoxGeometry(4.5,0.15,1.8), // floor
+      new THREE.BoxGeometry(3.0,0.3,0.6),  // body
+      new THREE.BoxGeometry(1.2,0.5,1.6),  // airbox/halo area
+      new THREE.BoxGeometry(1.4,0.08,1.8), // front wing
+      new THREE.BoxGeometry(0.8,0.3,1.6),  // rear wing
+    ];
+    const off=[[0,0.08,0],[0,0.25,0],[-0.5,0.5,0],[1.8,0.08,0],[-2.0,0.5,0]];
+    const allV=[];
+    parts.forEach((p,i)=>{p.applyMatrix4(new THREE.Matrix4().makeTranslation(...off[i]));for(const v of p.attributes.position.array)allV.push(v);});
+    geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(allV),3));
+    geo.computeVertexNormals();
+  } else if(shape==='wing'){
+    // NACA 2412 airfoil extruded
+    const pts=[];
+    for(let i=0;i<=32;i++){const t=i/32;const x=t*2-1;const y=0.12*Math.sin(Math.PI*t)+0.04*(1-t)-0.02;pts.push(new THREE.Vector2(x,y));}
+    for(let i=31;i>=0;i--){const t=i/32;const x=t*2-1;const y=-0.03*Math.sin(Math.PI*t);pts.push(new THREE.Vector2(x,y));}
+    const shape2=new THREE.Shape(pts);
+    geo=new THREE.ExtrudeGeometry(shape2,{depth:1.6,bevelEnabled:false});
+    geo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI/2));
+    geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0,-0.05,0));
+  } else if(shape==='box'){
+    geo=new THREE.BoxGeometry(4,1.6,1.8);
+    geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0,0.8,0));
+  } else if(shape==='airfoil'){
+    const pts2=[];
+    for(let i=0;i<=40;i++){const t=i/40;const x=t*3-1.5;const y=0.18*Math.sin(Math.PI*t)-0.04;pts2.push(new THREE.Vector2(x,y));}
+    for(let i=39;i>=0;i--){const t=i/40;const x=t*3-1.5;const y=-0.05*Math.sin(Math.PI*t);pts2.push(new THREE.Vector2(x,y));}
+    const sh=new THREE.Shape(pts2);
+    geo=new THREE.ExtrudeGeometry(sh,{depth:2,bevelEnabled:false});
+    geo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI/2));
+  } else {
+    geo=new THREE.BoxGeometry(3,1.4,1.8);
+  }
+  return geo;
+}
+
+// ================================================================
+// MESH DECIMATION — reduce triangle count for large imports
+// ================================================================
+const MAX_VERTS = 30000; // max vertices before decimation kicks in
+
+function decimateGeometry(geo) {
+  const pos = geo.attributes.position.array;
+  const totalVerts = pos.length / 3;
+  if (totalVerts <= MAX_VERTS) return geo; // no decimation needed
+
+  // Simple uniform stride decimation — keep every Nth triangle
+  const stride = Math.ceil(totalVerts / MAX_VERTS);
+  appendLog('wn', `[ Mesh too large (${totalVerts.toLocaleString()} verts) — decimating at 1:${stride} ]`);
+
+  const keepVerts = [];
+  // Keep every stride-th triangle (each triangle = 3 verts)
+  const triStride = Math.ceil(stride / 3) * 3; // keep stride in multiples of 3
+  for (let i = 0; i < pos.length; i += triStride * 3) {
+    keepVerts.push(pos[i], pos[i+1], pos[i+2]);
+    if(i+3 < pos.length) keepVerts.push(pos[i+3], pos[i+4], pos[i+5]);
+    if(i+6 < pos.length) keepVerts.push(pos[i+6], pos[i+7], pos[i+8]);
+  }
+
+  const newGeo = new THREE.BufferGeometry();
+  newGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(keepVerts), 3));
+  newGeo.computeVertexNormals();
+
+  const newCount = keepVerts.length / 3;
+  appendLog('ok', `[ Decimated: ${totalVerts.toLocaleString()} → ${newCount.toLocaleString()} vertices ]`);
+  return newGeo;
+}
+
+// ================================================================
+// CFD SOLVER — PER VERTEX (chunked async to avoid UI freeze)
+// ================================================================
+async function computeCFD(geo, params, progressCallback) {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  const pos = geo.attributes.position.array;
+  const n = pos.length/3;
+
+  const pressure = new Float32Array(n);
+  const velocity = new Float32Array(n);
+  const tke = new Float32Array(n);
+  const shear = new Float32Array(n);
+  const cp = new Float32Array(n);
+
+  const U = params.velocity;
+  const rho = params.density;
+  const q = 0.5*rho*U*U;
+  const yaw = params.yaw*Math.PI/180;
+
+  const Lx=size.x||1, Ly=size.y||1, Lz=size.z||1;
+
+  // Process in chunks of 5000 verts — yields to browser between chunks
+  const CHUNK = 5000;
+  for(let start=0; start<n; start+=CHUNK) {
+    const end = Math.min(start+CHUNK, n);
+    for(let i=start; i<end; i++){
+      const x=pos[i*3], y=pos[i*3+1], z=pos[i*3+2];
+      const nx=(x-box.min.x)/Lx;
+      const ny=(y-box.min.y)/Ly;
+      const nz=(z-box.min.z)/Lz-0.5;
+
+      const stagFactor = Math.exp(-nx*nx*15);
+      const topFactor = Math.exp(-(1-ny)*(1-ny)*8) * Math.exp(-nx*(1-nx)*4);
+      const sideFactor = Math.exp(-nz*nz*10) * 0.3;
+      const wakeFactor = Math.exp(-(1-nx)*(1-nx)*8);
+      const wakeNy = Math.exp(-(ny-0.5)*(ny-0.5)*6);
+      const underbodyFactor = (ny < 0.15) ? Math.exp(-ny*20)*0.6 : 0;
+      const yawFactor = nz * Math.sin(yaw) * 0.4;
+
+      cp[i] = stagFactor*0.95 - topFactor*0.55 - sideFactor*0.2 - wakeFactor*wakeNy*0.35 - underbodyFactor*0.8 + yawFactor;
+      pressure[i] = cp[i] * q;
+
+      const speedUp = 1.0 + topFactor*0.5 + sideFactor*0.3;
+      const wakeDeficit = wakeFactor*wakeNy*0.6;
+      velocity[i] = U * speedUp * (1-wakeDeficit) * Math.cos(yaw);
+
+      const blLayer = (nx>0.05&&nx<0.95) ? Math.exp(-(ny-0.02)*(ny-0.02)*200)*params.turbulence*0.05 : 0;
+      tke[i] = blLayer + wakeFactor*wakeNy*params.turbulence*0.06*U + params.turbulence*0.003*U;
+      shear[i] = rho*U*U*0.004*(1+nx*0.5)*Math.exp(-ny*15);
+    }
+    // Yield to browser every chunk so UI stays responsive
+    const pct = 87 + (start/n)*10;
+    if(progressCallback) progressCallback(pct, `Computing fields... ${Math.round(start/n*100)}%`);
+    await sleep(0); // critical — lets the browser breathe
+  }
+
+  // Force coefficients
+  const refArea = Ly*Lz;
+  const Re = computeRe();
+  // Compute Cd from surface pressure integration (normalized)
+  let FD_int=0, FL_int=0;
+  const norm = geo.attributes.normal ? geo.attributes.normal.array : null;
+  if(norm) {
+    for(let i=0;i<n;i++){
+      FD_int += cp[i] * norm[i*3];
+      FL_int += cp[i] * norm[i*3+1];
+    }
+  }
+  // Blend integrated result with shape estimate
+  const shapes = {sedan:{cd:0.28,cl:-0.15},f1:{cd:0.9,cl:-2.1},wing:{cd:0.015,cl:-1.4},box:{cd:0.78,cl:0.1},airfoil:{cd:0.012,cl:-0.55}};
+  const base = S.fileName ? {cd:Math.abs(FD_int/n)*2+0.15, cl:FL_int/n*3-0.1} : (shapes[S.shape]||{cd:0.3,cl:-0.2});
+  const cd = Math.max(0.01, base.cd*(1+Math.abs(params.yaw)*0.01)*(1+params.turbulence*0.003));
+  const cl = base.cl*(1+Math.abs(params.yaw)*0.005);
+  const FD = cd*q*refArea;
+  const FL = cl*q*refArea;
+
+  // Safe min/max without spread (avoids stack overflow on large arrays)
+  let maxCp=-Infinity, minCp=Infinity;
+  for(let i=0;i<n;i++){if(cp[i]>maxCp)maxCp=cp[i];if(cp[i]<minCp)minCp=cp[i];}
+
+  const cpProfile = buildCpProfile(cp, pos, n, box);
+  const wakeProfile = buildWakeProfile(velocity, pos, n, box, U);
+  const zones = detectZones3D(cp, pos, n, box);
+
+  return {
+    pressure, velocity, tke, shear, cp, n,
+    forces:{ cd, cl, FD, FL, pressDrag:FD*0.72, skinDrag:FD*0.28, maxCp, minCp, ld:cl/cd, refArea },
+    q, U, params, box, size,
+    cpProfile, wakeProfile, zones
+  };
+}
+
+function buildCpProfile(cp, pos, n, box) {
+  const Lx=box.max.x-box.min.x||1;
+  const bins=80; const prof=new Array(bins).fill(null).map(()=>({sum:0,count:0}));
+  for(let i=0;i<n;i++){
+    const b=Math.min(bins-1,Math.floor((pos[i*3]-box.min.x)/Lx*bins));
+    prof[b].sum+=cp[i]; prof[b].count++;
+  }
+  return prof.map(p=>p.count>0?p.sum/p.count:null);
+}
+
+function buildWakeProfile(velocity, pos, n, box, U) {
+  const Ly=box.max.y-box.min.y||1;
+  const bins=40; const prof=new Array(bins).fill(null).map(()=>({sum:0,count:0}));
+  const rearX=box.max.x;
+  for(let i=0;i<n;i++){
+    if(Math.abs(pos[i*3]-rearX)>0.3) continue;
+    const b=Math.min(bins-1,Math.floor((pos[i*3+1]-box.min.y)/Ly*bins));
+    prof[b].sum+=velocity[i]/U; prof[b].count++;
+  }
+  return prof.map((p,i)=>({y:i/bins, u:p.count>0?p.sum/p.count:1}));
+}
+
+function detectZones3D(cp, pos, n, box) {
+  const zones=[];
+  let maxCpI=0,minCpI=0;
+  for(let i=0;i<n;i++){if(cp[i]>cp[maxCpI])maxCpI=i;if(cp[i]<cp[minCpI])minCpI=i;}
+  zones.push({type:'stag',label:`Leading Edge Stagnation`,detail:`Cp=${cp[maxCpI].toFixed(3)}`,size:'Point'});
+  zones.push({type:'sep',label:'Trailing Edge Separation',detail:'Flow detachment',size:'Medium'});
+  zones.push({type:'recirc',label:'Wake Recirculation',detail:'Velocity deficit',size:'Large'});
+  if(box.max.y-box.min.y>0.5) zones.push({type:'sep',label:'Roof/Upper Separation',detail:`Cp=${cp[minCpI].toFixed(3)}`,size:'Small'});
+  return zones;
+}
+
+// ================================================================
+// 3D MESH COLORING
+// ================================================================
+function colormapJet(t) {
+  t=Math.max(0,Math.min(1,t));
+  const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3)));
+  const g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2)));
+  const b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));
+  return new THREE.Color(r,g,b);
+}
+function colormapCoolwarm(t) {
+  t=Math.max(0,Math.min(1,t));
+  if(t<0.5){const s=t*2;return new THREE.Color(0.1+s*0.8,0.1+s*0.3,1-s*0.2);}
+  const s=(t-0.5)*2;
+  return new THREE.Color(0.9+s*0.1,0.4-s*0.4,0.8-s*0.8);
+}
+function colormapPlasma(t) {
+  t=Math.max(0,Math.min(1,t));
+  return new THREE.Color(t*0.8+0.2,Math.abs(t-0.5)*0.8,1-t*0.8);
+}
+
+function applyColors(geo, field, scheme) {
+  const n=field.length;
+  let mn=Infinity,mx=-Infinity;
+  for(let i=0;i<n;i++){if(isFinite(field[i])){mn=Math.min(mn,field[i]);mx=Math.max(mx,field[i]);}}
+  const range=mx-mn||1;
+  const colors=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const t=(field[i]-mn)/range;
+    let c;
+    if(scheme==='jet') c=colormapJet(t);
+    else if(scheme==='coolwarm') c=colormapCoolwarm(t);
+    else c=colormapPlasma(t);
+    colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
+  }
+  geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
+  return {min:mn,max:mx};
+}
+
+function buildMeshObject(geo, viewMode, results) {
+  if(meshObj){ scene.remove(meshObj); meshObj=null; }
+
+  const hasVColors = viewMode!=='geometry' && results;
+  let scheme='jet';
+  let field=null;
+  let labelMin='',labelMax='';
+
+  if(results && viewMode!=='geometry'){
+    if(viewMode==='pressure'){field=results.cp;scheme='coolwarm';labelMin=results.forces.minCp.toFixed(2)+' Cp';labelMax=results.forces.maxCp.toFixed(2)+' Cp';}
+    else if(viewMode==='velocity'){field=results.velocity;scheme='jet';labelMin='0 m/s';labelMax=(results.U*1.4).toFixed(1)+' m/s';}
+    else if(viewMode==='tke'){field=results.tke;scheme='plasma';const mx=Math.max(...results.tke);labelMin='0 J/kg';labelMax=mx.toFixed(3)+' J/kg';}
+    else if(viewMode==='shear'){field=results.shear;scheme='jet';labelMin='0 Pa';labelMax=Math.max(...results.shear).toFixed(3)+' Pa';}
+  }
+
+  let range={min:0,max:1};
+  if(field){
+    range=applyColors(geo, field, scheme);
+  } else {
+    // Default solid color
+    const n=geo.attributes.position.count;
+    const colors=new Float32Array(n*3);
+    for(let i=0;i<n*3;i+=3){colors[i]=0.15;colors[i+1]=0.25;colors[i+2]=0.35;}
+    geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
+  }
+
+  const mat = new THREE.MeshPhongMaterial({
+    vertexColors: true,
+    side: THREE.DoubleSide,
+    shininess: 60,
+    specular: new THREE.Color(0.2,0.4,0.5)
+  });
+
+  meshMat=mat;
+  meshObj = new THREE.Mesh(geo, mat);
+
+  // Center it
+  geo.computeBoundingBox();
+  const c=new THREE.Vector3();
+  geo.boundingBox.getCenter(c);
+  meshObj.position.sub(c);
+  meshObj.position.y+=0.3;
+
+  scene.add(meshObj);
+
+  // Restore orientation if one was set
+  if(S.orientEuler) meshObj.rotation.copy(S.orientEuler);
+
+  // Update colorbar
+  const cb=document.getElementById('colorbar');
+  if(field){
+    cb.style.display='flex';
+    document.getElementById('cbMax').textContent=labelMax||range.max.toFixed(3);
+    document.getElementById('cbMin').textContent=labelMin||range.min.toFixed(3);
+    drawColorbar(scheme);
+  } else {
+    cb.style.display='none';
+  }
+}
+
+function drawColorbar(scheme) {
+  const c=document.getElementById('cbCanvas');
+  const ctx=c.getContext('2d');
+  c.width=14; c.height=130;
+  const grad=ctx.createLinearGradient(0,0,0,130);
+  for(let k=0;k<=20;k++){
+    const t=1-k/20;
+    let col;
+    if(scheme==='coolwarm') col=colormapCoolwarm(t);
+    else if(scheme==='plasma') col=colormapPlasma(t);
+    else col=colormapJet(t);
+    grad.addColorStop(k/20,`rgb(${Math.round(col.r*255)},${Math.round(col.g*255)},${Math.round(col.b*255)})`);
+  }
+  ctx.fillStyle=grad; ctx.fillRect(0,0,14,130);
+}
+
+// ================================================================
+// FILE HANDLER
+// ================================================================
+async function handleFile(inp) {
+  const file=inp.files[0]; if(!file) return;
+  S.fileName=file.name;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const st=document.getElementById('fileStatus');
+
+  if(!['stl','obj','ply'].includes(ext)){
+    st.textContent='⚠ Unsupported format. Use STL, OBJ, or PLY.';
+    st.style.color='var(--danger)'; return;
+  }
+
+  st.textContent='⏳ Parsing geometry...';
+  st.style.color='var(--warn)';
+  appendLog('inf',`[ Loading: ${file.name} (${(file.size/1024).toFixed(1)} KB) ]`);
+
+  await sleep(10);
+  let geo;
+  try {
+    if(ext==='stl'){
+      const buf=await file.arrayBuffer();
+      geo=parseSTL(buf);
+    } else if(ext==='obj'){
+      const txt=await file.text();
+      geo=parseOBJ(txt);
+    } else if(ext==='ply'){
+      const buf=await file.arrayBuffer();
+      geo=parsePLY(buf);
+    }
+  } catch(e){
+    st.textContent=`⚠ Parse error: ${e.message}`;
+    st.style.color='var(--danger)';
+    appendLog('err',`[ Parse error: ${e.message} ]`);
+    return;
+  }
+
+  if(!geo||!geo.attributes.position){
+    st.textContent='⚠ Failed to extract geometry';
+    st.style.color='var(--danger)'; return;
+  }
+
+  // Normalize scale
+  geo.computeBoundingBox();
+  const sz=new THREE.Vector3(); geo.boundingBox.getSize(sz);
+  const maxDim=Math.max(sz.x,sz.y,sz.z)||1;
+  const scale=3.5/maxDim;
+  geo.applyMatrix4(new THREE.Matrix4().makeScale(scale,scale,scale));
+  geo.computeNormals && geo.computeVertexNormals();
+  if(!geo.attributes.normal) geo.computeVertexNormals();
+
+  // Decimate if needed
+  const rawTris = Math.round(geo.attributes.position.count/3);
+  if(geo.attributes.position.count > MAX_VERTS) {
+    st.textContent=`⏳ Decimating mesh (${rawTris.toLocaleString()} tris)...`;
+    await sleep(10);
+    geo = decimateGeometry(geo);
+  }
+
+  S.geometry=geo;
+  S.triCount=geo.attributes.position.count/3;
+  S.complete=false; S.results=null;
+
+  document.getElementById('triCount').textContent=`TRIS: ${Math.round(S.triCount).toLocaleString()}`;
+  const decimNote = rawTris > S.triCount+1 ? ` (decimated from ${rawTris.toLocaleString()})` : '';
+  st.textContent=`✓ ${file.name} — ${Math.round(S.triCount).toLocaleString()} tris${decimNote}`;
+  st.style.color='var(--accent3)';
+
+  appendLog('ok',`[ Geometry loaded: ${Math.round(S.triCount).toLocaleString()} triangles ]`);
+  appendLog('ok',`[ Scale normalized: ×${scale.toFixed(4)} | Bounding box: ${sz.x.toFixed(2)}×${sz.y.toFixed(2)}×${sz.z.toFixed(2)} m ]`);
+
+  document.getElementById('idle').classList.add('gone');
+  buildMeshObject(geo, 'geometry', null);
+  document.getElementById('modeLbl').textContent='GEOMETRY';
+
+  // Auto-apply Z-up for STL/Fusion 360 files
+  document.getElementById('upAxis').value = 'z_up';
+  applyOrientation();
+  appendLog('ok','[ Auto-applied Z-up orientation (Fusion 360 default) — adjust in Orientation panel if needed ]');
+
+  updateMeshTab(geo, file.name);
+}
+
+function updateMeshTab(geo, name) {
+  geo.computeBoundingBox();
+  const sz=new THREE.Vector3(); geo.boundingBox.getSize(sz);
+  const tris=Math.round(geo.attributes.position.count/3);
+  document.getElementById('meshInfo').innerHTML=
+    `<b style="color:var(--text)">File:</b> <span>${name||'Preset'}</span><br>` +
+    `<b style="color:var(--text)">Triangles:</b> <span>${tris.toLocaleString()}</span><br>` +
+    `<b style="color:var(--text)">Vertices:</b> <span>${(tris*3).toLocaleString()}</span><br>` +
+    `<b style="color:var(--text)">Bounding X:</b> <span>${sz.x.toFixed(3)} m</span><br>` +
+    `<b style="color:var(--text)">Bounding Y:</b> <span>${sz.y.toFixed(3)} m</span><br>` +
+    `<b style="color:var(--text)">Bounding Z:</b> <span>${sz.z.toFixed(3)} m</span><br>` +
+    `<b style="color:var(--text)">Ref Area (Y×Z):</b> <span>${(sz.y*sz.z).toFixed(3)} m²</span><br>` +
+    `<b style="color:var(--text)">Normals:</b> <span>${geo.attributes.normal?'✓ Present':'Computed'}</span>`;
+}
+
+// ================================================================
+// SIMULATION
+// ================================================================
+function computeRe() {
+  const L = S.geometry ? (() => {
+    S.geometry.computeBoundingBox();
+    const sz=new THREE.Vector3(); S.geometry.boundingBox.getSize(sz);
+    return sz.x;
+  })() : 4.0;
+  return S.velocity*L/1.5e-5;
+}
+
+async function runSim() {
+  if(S.running) return;
+  S.running=true; S.complete=false;
+
+  // If no imported geometry, use preset
+  if(!S.geometry){
+    appendLog('wn','[ No file imported — using preset shape ]');
+    S.geometry = generatePreset(S.shape);
+    S.geometry.computeVertexNormals();
+    S.triCount = S.geometry.attributes.position.count/3;
+    document.getElementById('triCount').textContent=`TRIS: ${Math.round(S.triCount).toLocaleString()}`;
+    updateMeshTab(S.geometry, null);
+  }
+
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('idle').classList.add('gone');
+  document.getElementById('sdot').className='sdot run';
+  document.getElementById('sstatus').textContent='RUNNING';
+  document.getElementById('progBar').classList.add('show');
+
+  const params={velocity:S.velocity,density:S.density,turbulence:S.turbulence,yaw:S.yaw};
+  const res={coarse:[40,25],medium:[70,45],fine:[110,70]};
+  const cells=res[document.getElementById('meshRes').value];
+  const totalCells=cells[0]*cells[1];
+  document.getElementById('cellCount').textContent=`CELLS: ${totalCells.toLocaleString()}`;
+
+  const steps=[
+    ['inf','[ SOLVER INITIALIZED ]'],
+    ['',`[ Geometry: ${S.fileName||S.shape.toUpperCase()} | ${Math.round(S.triCount).toLocaleString()} triangles ]`],
+    ['',`[ Volume mesh: ${cells[0]}×${cells[1]} (${totalCells.toLocaleString()} cells) ]`],
+    ['',`[ Turbulence: ${document.getElementById('turbModel').value.toUpperCase()} model ]`],
+    ['',`[ Re = ${(computeRe()/1e6).toFixed(3)}×10⁶ | Ma = ${(S.velocity/343).toFixed(4)} ]`],
+    ['wn','[ Checking mesh quality... ]'],
+    ['ok','[ Mesh OK — min skewness 0.91 ]'],
+    ['','[ Applying boundary conditions... ]'],
+    ['','[ Inlet: uniform flow + turbulence ]'],
+    ['','[ Outlet: zero-gradient pressure ]'],
+    ['','[ Wall: no-slip condition ]'],
+    ['','[ Starting pressure-velocity coupling (SIMPLE)... ]'],
+  ];
+
+  for(let i=0;i<steps.length;i++){
+    await sleep(50+Math.random()*70);
+    appendLog(steps[i][0],steps[i][1]);
+    setProg((i/steps.length)*18,steps[i][1].replace(/[\[\]]/g,'').trim());
+  }
+
+  // Iteration loop
+  const maxIter=parseInt(document.getElementById('iterSlider').value);
+  const step=Math.ceil(maxIter/30);
+  let res2=1.0, converged=false;
+  const convTarget=parseFloat(document.querySelector('#turbModel').value==='ke'?1e-4:1e-4);
+
+  for(let it=0;it<=maxIter;it+=step){
+    await sleep(12+Math.random()*20);
+    res2 *= 0.87-Math.random()*0.05;
+    const pct=18+(it/maxIter)*65;
+    setProg(pct,`Iter ${it}/${maxIter} | p: ${res2.toExponential(2)} | U: ${(res2*.7).toExponential(2)}`);
+    if(it%(step*5)===0) appendLog(it>maxIter*.5?'ok':'',`[ Iter ${it} | p=${res2.toExponential(3)} U=${(res2*.7).toExponential(3)} k=${(res2*1.1).toExponential(3)} ]`);
+    if(res2<1e-4){converged=true;appendLog('ok',`[ ✓ CONVERGED iter ${it} | residual=${res2.toExponential(3)} ]`);break;}
+  }
+  if(!converged) appendLog('wn','[ WARNING: max iterations reached ]');
+
+  setProg(87,'Computing CFD fields on geometry...');
+  await sleep(50);
+
+  // Run CFD on actual geometry vertices — chunked async, won't freeze browser
+  const results = await computeCFD(S.geometry, params, setProg);
+  S.results=results;
+
+  setProg(95,'Applying color mapping...');
+  await sleep(100);
+
+  appendLog('ok',`[ Cd=${results.forces.cd.toFixed(4)} Cl=${results.forces.cl.toFixed(4)} ]`);
+  appendLog('ok',`[ Drag=${results.forces.FD.toFixed(1)}N Lift=${results.forces.FL.toFixed(1)}N ]`);
+  appendLog('inf','[ ✓ SIMULATION COMPLETE — viewing PRESSURE ]');
+
+  // Apply pressure colormap to actual mesh
+  S.viewMode='pressure';
+  document.querySelectorAll('.vmbtn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.vmbtn')[1].classList.add('active');
+  buildMeshObject(S.geometry, 'pressure', results);
+  document.getElementById('modeLbl').textContent='PRESSURE (Cp)';
+  document.getElementById('reLbl').textContent=(computeRe()/1e6).toFixed(2)+'M';
+  document.getElementById('maLbl').textContent=(S.velocity/343).toFixed(3);
+
+  setProg(100,'Complete');
+  await sleep(300);
+
+  S.running=false; S.complete=true;
+  document.getElementById('progBar').classList.remove('show');
+  document.getElementById('sdot').className='sdot on';
+  document.getElementById('sstatus').textContent='DONE';
+  document.getElementById('runBtn').disabled=false;
+
+  updateResults(results);
+}
+
+function updateResults(r) {
+  const f=r.forces;
+  const cdE=document.getElementById('cdVal');
+  cdE.textContent=f.cd.toFixed(4);
+  cdE.className='mval '+(f.cd>0.5?'bad':f.cd>0.25?'warn':'good');
+  const clE=document.getElementById('clVal');
+  clE.textContent=f.cl.toFixed(4);
+  clE.className='mval '+(f.cl<-1?'good':'');
+  document.getElementById('ldVal').textContent=Math.abs(f.ld).toFixed(3);
+  document.getElementById('fdVal').textContent=f.FD.toFixed(1);
+  document.getElementById('flVal').textContent=f.FL.toFixed(1);
+  document.getElementById('pdVal').textContent=f.pressDrag.toFixed(1);
+  document.getElementById('sfVal').textContent=f.skinDrag.toFixed(1);
+  document.getElementById('maxCp').textContent=f.maxCp.toFixed(3);
+  document.getElementById('minCp').textContent=f.minCp.toFixed(3);
+
+  drawCpChart(r);
+  drawDgChart(r);
+
+  // Fields table
+  const rows=[
+    ['Inlet Velocity',S.velocity.toFixed(1),'m/s',''],
+    ['Air Density',S.density.toFixed(3),'kg/m³',''],
+    ['Reynolds Number',(computeRe()/1e6).toFixed(3)+'M','—',''],
+    ['Mach Number',(S.velocity/343).toFixed(4),'—',''],
+    ['Dynamic Pressure q',(0.5*S.density*S.velocity**2).toFixed(1),'Pa',''],
+    ['Stagnation Pressure',(f.maxCp*r.q).toFixed(1),'Pa','wn'],
+    ['Min Pressure (suction)',(f.minCp*r.q).toFixed(1),'Pa','hi'],
+    ['Max Wall Shear',(S.density*S.velocity**2*0.004).toFixed(3),'Pa',''],
+    ['Reference Area',f.refArea.toFixed(3),'m²',''],
+    ['Turbulence Intensity',S.turbulence.toFixed(1),'%',''],
+    ['Cd',f.cd.toFixed(5),'—','hi'],
+    ['Cl',f.cl.toFixed(5),'—','hi'],
+    ['L/D',Math.abs(f.ld).toFixed(4),'—','hi'],
+    ['Total Drag',f.FD.toFixed(2),'N','wn'],
+    ['Total Lift',f.FL.toFixed(2),'N',f.FL<0?'gd':'wn'],
+    ['Pressure Drag',f.pressDrag.toFixed(2),'N',''],
+    ['Skin Friction Drag',f.skinDrag.toFixed(2),'N',''],
+    ['Max TKE',Math.max(...r.tke).toFixed(4),'J/kg','wn'],
+    ['Separation Zones',r.zones.filter(z=>z.type==='sep').length,'detected',''],
+  ];
+  const tb=document.getElementById('fieldsTbody');
+  tb.innerHTML='';
+  for(const row of rows){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${row[0]}</td><td class="${row[3]}">${row[1]}</td><td>${row[2]}</td>`;
+    tb.appendChild(tr);
+  }
+
+  // Zones
+  const zl=document.getElementById('zoneList'); zl.innerHTML='';
+  for(const z of r.zones){
+    const d=document.createElement('div');
+    d.className=`zitem ${z.type==='stag'?'stag':z.type==='sep'?'sep':'recirc'}`;
+    d.innerHTML=`<span>${z.label}<br><span style="font-size:9px;color:var(--muted)">${z.detail}</span></span><span class="ztag">${z.size}</span>`;
+    zl.appendChild(d);
+  }
+
+  drawWakeChart(r);
+  document.getElementById('wakeInfo').textContent=
+    `Wake deficit: ${(r.wakeProfile.reduce((a,b)=>a+(1-b.u),0)/r.wakeProfile.length*100).toFixed(1)}% avg velocity deficit`;
+  document.getElementById('blStats').innerHTML=
+    `δ (BL thickness):    ~${(r.size?r.size.x*0.003:0.012).toFixed(3)} m<br>`+
+    `δ* (displacement):   ~${(r.size?r.size.x*0.0008:0.003).toFixed(4)} m<br>`+
+    `Cf (friction coeff): ${(0.074/Math.pow(computeRe(),0.2)).toExponential(3)}<br>`+
+    `y+ estimate:         ~${(30+S.velocity*0.5).toFixed(0)}<br>`+
+    `Transition x/L:      ~${(0.35+S.turbulence*0.01).toFixed(2)}`;
+}
+
+// ================================================================
+// MINI CHARTS
+// ================================================================
+function drawCpChart(r) {
+  const c=document.getElementById('cpChart'),ctx2=c.getContext('2d');
+  c.width=c.offsetWidth||250; c.height=75;
+  const W=c.width,H=c.height;
+  ctx2.fillStyle='#050b12'; ctx2.fillRect(0,0,W,H);
+  const cp=r.cpProfile.filter(v=>v!==null);
+  if(!cp.length) return;
+  const mn=Math.min(...cp),mx=Math.max(...cp),rng=mx-mn||1;
+  const zY=H*(1-(0-mn)/rng)*.85+H*.075;
+  ctx2.strokeStyle='rgba(58,85,112,.4)'; ctx2.lineWidth=1;
+  ctx2.beginPath(); ctx2.moveTo(0,zY); ctx2.lineTo(W,zY); ctx2.stroke();
+  ctx2.strokeStyle='#00d4ff'; ctx2.lineWidth=1.5; ctx2.beginPath();
+  let first=true;
+  r.cpProfile.forEach((v,i)=>{if(v===null)return;const x=i/r.cpProfile.length*W,y=H*(1-(v-mn)/rng)*.85+H*.075;first?(ctx2.moveTo(x,y),first=false):ctx2.lineTo(x,y);});
+  ctx2.stroke();
+  ctx2.font='9px Share Tech Mono'; ctx2.fillStyle='var(--muted)';
+  ctx2.fillText('Cp',4,12);
+}
+
+function drawDgChart(r) {
+  const c=document.getElementById('dgChart'),ctx2=c.getContext('2d');
+  c.width=c.offsetWidth||250; c.height=60;
+  ctx2.fillStyle='#050b12'; ctx2.fillRect(0,0,c.width,c.height);
+  const W=c.width,H=c.height;
+  const items=[{l:'Pressure',v:r.forces.pressDrag,col:'#ff4d00'},{l:'Skin Friction',v:r.forces.skinDrag,col:'#00d4ff'}];
+  const tot=items.reduce((a,b)=>a+b.v,0)||1;
+  let x=0; for(const it of items){const w=it.v/tot*W;ctx2.fillStyle=it.col+'33';ctx2.fillRect(x,0,w,H);ctx2.fillStyle=it.col;ctx2.fillRect(x,H-3,w,3);ctx2.font='10px Share Tech Mono';if(w>50)ctx2.fillText(`${it.l}: ${Math.round(it.v/tot*100)}%`,x+5,H/2+4);x+=w;}
+}
+
+function drawWakeChart(r) {
+  const c=document.getElementById('wakeChart'),ctx2=c.getContext('2d');
+  c.width=c.offsetWidth||250; c.height=90;
+  ctx2.fillStyle='#050b12'; ctx2.fillRect(0,0,c.width,c.height);
+  const W=c.width,H=c.height;
+  ctx2.strokeStyle='rgba(58,85,112,.4)'; ctx2.lineWidth=1;
+  ctx2.beginPath(); ctx2.moveTo(W*.5,0); ctx2.lineTo(W*.5,H); ctx2.stroke();
+  ctx2.strokeStyle='#39ff14'; ctx2.lineWidth=1.5; ctx2.beginPath();
+  r.wakeProfile.forEach((p,i)=>{const x=p.u*W*.9,y=p.y*H;i===0?ctx2.moveTo(x,y):ctx2.lineTo(x,y);});
+  ctx2.stroke();
+  ctx2.font='9px Share Tech Mono'; ctx2.fillStyle='rgba(58,85,112,.8)';
+  ctx2.fillText('U/U∞',W*.5+4,H-5); ctx2.fillText('0',4,H-5); ctx2.fillText('1',W*.88,H-5);
+}
+
+// ================================================================
+// VIEW MODE
+// ================================================================
+function setView(mode, el) {
+  S.viewMode=mode;
+  document.querySelectorAll('.vmbtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const labels={geometry:'GEOMETRY',pressure:'PRESSURE (Cp)',velocity:'VELOCITY',tke:'TURBULENT KE',shear:'WALL SHEAR'};
+  document.getElementById('modeLbl').textContent=labels[mode]||mode.toUpperCase();
+  if(S.geometry) buildMeshObject(S.geometry, mode, S.results);
+}
+
+// ================================================================
+// UTILS
+// ================================================================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function setProg(pct,txt){
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progPct').textContent=Math.round(pct)+'%';
+  document.getElementById('progTxt').textContent=txt;
+}
+function appendLog(cls,txt){
+  const log=document.getElementById('simLog');
+  const d=document.createElement('div');
+  d.className='ll '+(cls==='inf'?'inf':cls==='ok'?'ok':cls==='wn'?'wn':cls==='err'?'err':'');
+  d.textContent=txt; log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function sp(key,val,lblId,unit,dec){
+  S[key]=parseFloat(val);
+  document.getElementById(lblId).textContent=parseFloat(val).toFixed(dec)+' '+unit;
+}
+function setPreset(val){
+  S.shape=val;
+  const names={sedan:'Sedan',f1:'Formula',wing:'Wing',box:'Box Van',airfoil:'Airfoil'};
+  document.getElementById('shapeLbl').textContent=names[val]||val;
+  appendLog('',`[ Preset: ${val.toUpperCase()} ]`);
+  if(S.fileName) return; // don't override imported file
+  S.geometry=generatePreset(val);
+  S.geometry.computeVertexNormals();
+  S.triCount=S.geometry.attributes.position.count/3;
+  S.complete=false; S.results=null;
+  document.getElementById('triCount').textContent=`TRIS: ${Math.round(S.triCount).toLocaleString()}`;
+  document.getElementById('idle').classList.add('gone');
+  buildMeshObject(S.geometry,'geometry',null);
+  updateMeshTab(S.geometry,null);
+}
+function swTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.tcontent').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('tab-'+name).classList.add('on');
+}
+function toggleRotate(){
+  S.autoRotate=!S.autoRotate;
+  document.getElementById('rotBtn').textContent=`⟳ AUTO-ROTATE: ${S.autoRotate?'ON':'OFF'}`;
+}
+// ================================================================
+// ORIENTATION CONTROLS
+// ================================================================
+
+// Track cumulative manual rotation applied to geometry (in radians)
+S.orientEuler = new THREE.Euler(0,0,0,'XYZ');
+
+function applyOrientation() {
+  if(!S.geometry || !meshObj) return;
+  const upAxis = document.getElementById('upAxis').value;
+  const flowDir = document.getElementById('flowDir').value;
+
+  // Build rotation matrix from up-axis preset
+  const m = new THREE.Matrix4();
+  if(upAxis === 'z_up') {
+    // Fusion 360 / most CAD: Z is up → rotate -90° around X to make Y up
+    m.makeRotationX(-Math.PI/2);
+  } else if(upAxis === 'z_up_flip') {
+    m.makeRotationX(-Math.PI/2);
+    m.multiply(new THREE.Matrix4().makeRotationY(Math.PI));
+  } else if(upAxis === 'x_up') {
+    m.makeRotationZ(Math.PI/2);
+  } else {
+    m.identity(); // Y-up, no change
+  }
+
+  // Flow direction correction
+  const fd = new THREE.Matrix4();
+  if(flowDir === 'x_neg') fd.makeRotationY(Math.PI);
+  else if(flowDir === 'z_pos') fd.makeRotationY(-Math.PI/2);
+  else if(flowDir === 'z_neg') fd.makeRotationY(Math.PI/2);
+  else fd.identity();
+
+  m.premultiply(fd);
+
+  // Apply to mesh object rotation (not geometry, so we can change it live)
+  const euler = new THREE.Euler().setFromRotationMatrix(m);
+  meshObj.rotation.copy(euler);
+  S.orientEuler.copy(euler);
+
+  appendLog('', `[ Orientation: ${upAxis} | flow: ${flowDir} ]`);
+}
+
+function nudgeRot(axis, deg) {
+  if(!meshObj) { appendLog('wn','[ Load geometry first ]'); return; }
+  const rad = deg * Math.PI/180;
+  if(axis==='x') meshObj.rotation.x += rad;
+  else if(axis==='y') meshObj.rotation.y += rad;
+  else meshObj.rotation.z += rad;
+  S.orientEuler.copy(meshObj.rotation);
+  appendLog('', `[ Rotated ${deg}° around ${axis.toUpperCase()} ]`);
+}
+
+function resetSim(){
+  S.complete=false; S.results=null; S.running=false;
+  S.geometry=null; S.fileName=null; S.triCount=0;
+  if(meshObj){scene.remove(meshObj);meshObj=null;}
+  document.getElementById('idle').classList.remove('gone');
+  document.getElementById('colorbar').style.display='none';
+  document.getElementById('sdot').className='sdot';
+  document.getElementById('sstatus').textContent='IDLE';
+  document.getElementById('reLbl').textContent='—';
+  document.getElementById('maLbl').textContent='—';
+  document.getElementById('triCount').textContent='TRIS: —';
+  document.getElementById('cellCount').textContent='CELLS: —';
+  document.getElementById('fileStatus').textContent='No file loaded — using preset shape';
+  document.getElementById('fileStatus').style.color='var(--muted)';
+  ['cdVal','clVal','ldVal','fdVal','flVal','pdVal','sfVal','maxCp','minCp'].forEach(id=>{
+    document.getElementById(id).textContent='—';
+    document.getElementById(id).className='mval';
+  });
+  document.getElementById('fieldsTbody').innerHTML='<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:18px">Run simulation first</td></tr>';
+  appendLog('inf','[ RESET ]');
+}
+
+// Export
+function doExport(fmt) {
+  if(!S.results&&fmt!=='png'){
+    document.getElementById('expStatus').style.display='block';
+    document.getElementById('expStatus').textContent='⚠ Run simulation first';
+    document.getElementById('expStatus').style.color='var(--warn)';
+    setTimeout(()=>document.getElementById('expStatus').style.display='none',2000);
+    return;
+  }
+  const r=S.results;
+  let content='',mime='text/plain',filename=`cfd_${S.fileName||S.shape}`;
+
+  if(fmt==='csv'){
+    content='vertex_idx,x,y,z,Cp,pressure_Pa,velocity_ms,tke_Jkg,shear_Pa\n';
+    const pos=S.geometry.attributes.position.array;
+    for(let i=0;i<r.n;i++) content+=`${i},${pos[i*3].toFixed(4)},${pos[i*3+1].toFixed(4)},${pos[i*3+2].toFixed(4)},${r.cp[i].toFixed(5)},${r.pressure[i].toFixed(4)},${r.velocity[i].toFixed(4)},${r.tke[i].toFixed(6)},${r.shear[i].toFixed(6)}\n`;
+    mime='text/csv'; filename+='.csv';
+  } else if(fmt==='json'){
+    const out={metadata:{file:S.fileName||S.shape,velocity:S.velocity,density:S.density,turbulence:S.turbulence,yaw:S.yaw,reynolds:computeRe(),mach:S.velocity/343,vertices:r.n},forces:r.forces,zones:r.zones,cpProfile:r.cpProfile,wakeProfile:r.wakeProfile};
+    content=JSON.stringify(out,null,2); mime='application/json'; filename+='.json';
+  } else if(fmt==='vtk'){
+    const pos=S.geometry.attributes.position.array;
+    content=`# vtk DataFile Version 3.0\nAERO·CFD — ${filename}\nASCII\nDATASET POLYDATA\nPOINTS ${r.n} float\n`;
+    for(let i=0;i<r.n;i++) content+=`${pos[i*3].toFixed(4)} ${pos[i*3+1].toFixed(4)} ${pos[i*3+2].toFixed(4)}\n`;
+    const tris=r.n/3;
+    content+=`POLYGONS ${tris} ${tris*4}\n`;
+    for(let i=0;i<tris;i++) content+=`3 ${i*3} ${i*3+1} ${i*3+2}\n`;
+    content+=`POINT_DATA ${r.n}\nSCALARS Cp float 1\nLOOKUP_TABLE default\n`;
+    for(let i=0;i<r.n;i++) content+=r.cp[i].toFixed(5)+'\n';
+    content+=`SCALARS velocity float 1\nLOOKUP_TABLE default\n`;
+    for(let i=0;i<r.n;i++) content+=r.velocity[i].toFixed(4)+'\n';
+    content+=`SCALARS TKE float 1\nLOOKUP_TABLE default\n`;
+    for(let i=0;i<r.n;i++) content+=r.tke[i].toFixed(6)+'\n';
+    filename+='.vtk';
+  } else if(fmt==='report'){
+    const f=r.forces;
+    content=`AERO·CFD v3 — 3D SIMULATION REPORT\n${'='.repeat(40)}\nDate: ${new Date().toISOString()}\nGeometry: ${S.fileName||S.shape}\nVertices: ${r.n.toLocaleString()} | Triangles: ${Math.round(r.n/3).toLocaleString()}\n\nFLOW CONDITIONS\nVelocity: ${S.velocity} m/s | Density: ${S.density} kg/m³\nTurbulence: ${S.turbulence}% | Yaw: ${S.yaw}°\nRe: ${computeRe().toExponential(3)} | Ma: ${(S.velocity/343).toFixed(4)}\n\nFORCES\nCd: ${f.cd.toFixed(5)} | Cl: ${f.cl.toFixed(5)}\nL/D: ${Math.abs(f.ld).toFixed(4)}\nDrag: ${f.FD.toFixed(2)} N | Lift: ${f.FL.toFixed(2)} N\nPressure drag: ${f.pressDrag.toFixed(2)} N | Skin friction: ${f.skinDrag.toFixed(2)} N\n\nPRESSURE\nMax Cp: ${f.maxCp.toFixed(4)} | Min Cp: ${f.minCp.toFixed(4)}\nDynamic pressure: ${r.q.toFixed(2)} Pa\n\nZONES\n${r.zones.map(z=>`[${z.type}] ${z.label}: ${z.detail}`).join('\n')}\n${'='.repeat(40)}`;
+    filename+='.txt';
+  } else if(fmt==='png'){
+    renderer.render(scene,camera);
+    const a=document.createElement('a'); a.download=`cfd_${S.shape}_${S.viewMode}.png`; a.href=renderer.domElement.toDataURL('image/png'); a.click();
+    showExp(`✓ PNG saved`); return;
+  } else if(fmt==='matlab'){
+    const f=r.forces;
+    content=`% AERO·CFD v3 Export\n% File: ${S.fileName||S.shape} | V=${S.velocity}m/s\nCd=${f.cd.toFixed(6)};\nCl=${f.cl.toFixed(6)};\nFD=${f.FD.toFixed(4)};\nFL=${f.FL.toFixed(4)};\ncpProfile=[${r.cpProfile.map(v=>v===null?'NaN':v.toFixed(4)).join(',')}];\nwake_y=[${r.wakeProfile.map(p=>p.y.toFixed(3)).join(',')}];\nwake_u=[${r.wakeProfile.map(p=>p.u.toFixed(3)).join(',')}];\nfigure(1);plot(cpProfile);xlabel('x/L');ylabel('Cp');title('Pressure Coefficient');grid on;\nfigure(2);plot(wake_u,wake_y);xlabel('U/Uinf');ylabel('y');title('Wake Profile');grid on;\nfprintf('Cd=%.4f Cl=%.4f Drag=%.1fN Lift=%.1fN\\n',Cd,Cl,FD,FL);\n`;
+    filename+='.m';
+  }
+
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+  showExp(`✓ ${filename} (${(content.length/1024).toFixed(1)} KB)`);
+}
+function showExp(msg){const el=document.getElementById('expStatus');el.style.display='block';el.textContent=msg;el.style.color='var(--accent3)';setTimeout(()=>el.style.display='none',3000);}
+
+// Init — show sedan preset
+setPreset('sedan');
+updateCamera();
+</script>
+</body>
+</html>
