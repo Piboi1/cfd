@@ -1200,8 +1200,17 @@ async function runSim() {
   setProg(87,'Computing CFD fields on geometry...');
   await sleep(50);
 
-  // Run CFD on actual geometry vertices — chunked async, won't freeze browser
-  const results = await computeCFD(S.geometry, params, setProg);
+  // Bake orientation into a solver copy so CFD fields match the visual orientation
+  let solverGeo = S.geometry;
+  if(S.orientEuler && (S.orientEuler.x!==0 || S.orientEuler.y!==0 || S.orientEuler.z!==0)) {
+    solverGeo = S.geometry.clone();
+    const m4 = new THREE.Matrix4().makeRotationFromEuler(S.orientEuler);
+    solverGeo.applyMatrix4(m4);
+    solverGeo.computeVertexNormals();
+    appendLog('', '[ Orientation baked into solver — fields will match viewport ]');
+  }
+  // Run CFD on orientation-corrected geometry — chunked async, won't freeze browser
+  const results = await computeCFD(solverGeo, params, setProg);
   S.results=results;
 
   setProg(95,'Applying color mapping...');
@@ -1444,6 +1453,7 @@ function applyOrientation() {
   S.orientEuler.copy(euler);
 
   appendLog('', `[ Orientation: ${upAxis} | flow: ${flowDir} ]`);
+  appendLog('wn', '[ Re-run simulation to update CFD fields for new orientation ]');
 }
 
 function nudgeRot(axis, deg) {
@@ -1453,7 +1463,7 @@ function nudgeRot(axis, deg) {
   else if(axis==='y') meshObj.rotation.y += rad;
   else meshObj.rotation.z += rad;
   S.orientEuler.copy(meshObj.rotation);
-  appendLog('', `[ Rotated ${deg}° around ${axis.toUpperCase()} ]`);
+  appendLog('', `[ Rotated ${deg}° around ${axis.toUpperCase()} — re-run sim to update fields ]`);
 }
 
 function resetSim(){
