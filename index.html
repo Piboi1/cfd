@@ -973,11 +973,16 @@ function buildMeshObject(geo, viewMode, results) {
     geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
   }
 
+  // Recompute vertex normals for smooth shading — averages normals across
+  // adjacent faces so decimated mesh looks continuous instead of faceted
+  geo.computeVertexNormals();
+
   const mat = new THREE.MeshPhongMaterial({
     vertexColors: true,
     side: THREE.DoubleSide,
-    shininess: 60,
-    specular: new THREE.Color(0.2,0.4,0.5)
+    flatShading: false,
+    shininess: 80,
+    specular: new THREE.Color(0.3,0.5,0.6)
   });
 
   meshMat=mat;
